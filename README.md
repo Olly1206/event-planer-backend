@@ -1,6 +1,6 @@
 # Event Planner Backend - Spring Boot API
 
-A modern RESTful API backend for event planning and management, built with Spring Boot 3.x, Spring Security with JWT, and Spring Data JPA with PostgreSQL.
+A modern RESTful API backend for event planning and management, built with Spring Boot 4.x, Spring Security with JWT, and Spring Data JPA with MySQL.
 
 ## Overview
 
@@ -17,9 +17,9 @@ This is the backend server for the Event Planner application, providing comprehe
 ## Quick Start
 
 ### Prerequisites
-- Java 21 (LTS or later)
+- Java 25
 - Gradle 8.0+
-- PostgreSQL 12+
+- MySQL 8+
 
 ### Build & Run
 
@@ -122,20 +122,21 @@ src/
 ## Configuration
 
 ### Environment Variables
-Create `application-local.properties` for local development (not committed to git):
+Set the following environment variables for local development or production:
 
 ```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/event_planner
-spring.datasource.username=postgres
-spring.datasource.password=yourpassword
-spring.jpa.hibernate.ddl-auto=update
+# Full JDBC URL of your MySQL 8+ database
+DATABASE_URL=jdbc:mysql://localhost:3306/event_manager_db?serverTimezone=UTC
 
-app.jwt.secret=your-super-secret-jwt-key-at-least-256-bits
-app.jwt.expiration=86400000
+# Fallback credentials (used only when DATABASE_URL omits user/password)
+DB_USERNAME=event_user
+DB_PASSWORD=yourpassword
 
-app.cache.max-age.events=300
-app.cache.max-age.single-event=600
+# JWT signing secret — at least 256 bits (32 bytes base64)
+JWT_SECRET=your-super-secret-jwt-key
 ```
+
+For local development, create `src/main/resources/application-local.properties` (not committed to git) and override only what you need.
 
 ## API Examples
 
@@ -196,22 +197,118 @@ The project includes comprehensive unit tests and integration tests:
 
 ## Deployment
 
-### Docker
-```bash
-# Build Docker image
-./gradlew bootBuildImage
+### Deploy to Render (recommended)
 
-# Run container
-docker run -p 8080:8080 event-planner-backend:latest
+The repo ships with a `Dockerfile` and a `render.yaml` that make Render deployment
+straightforward.  Follow these steps exactly:
+
+#### 1 · Provision a MySQL database
+
+Render only offers managed **PostgreSQL**.  For MySQL you need an external provider.
+Pick any of the free tiers below:
+
+| Provider | Free tier | URL format you'll get |
+|---|---|---|
+| [PlanetScale](https://planetscale.com) | ✅ | `mysql://user:pass@host/db?sslaccept=strict` |
+| [Railway](https://railway.app) | ✅ | `mysql://user:pass@host:port/db` |
+| [Aiven](https://aiven.io) | ✅ | `mysql://user:pass@host:port/db?ssl-mode=REQUIRE` |
+
+After creating the database, copy the **connection string** and convert it to JDBC format:
+
+```
+# raw URL from provider:
+mysql://alice:secret@aws.connect.psdb.cloud/event_db?sslaccept=strict
+
+# JDBC URL (prefix + query params for Spring Boot):
+jdbc:mysql://aws.connect.psdb.cloud:3306/event_db?sslMode=REQUIRED&serverTimezone=UTC&user=alice&password=secret
 ```
 
-### Production Build
+> Tip: Keep `sslMode=REQUIRED` — Render requires TLS for outbound DB connections.
+
+#### 2 · Create the Render Web Service
+
+**Option A — Blueprint (recommended, uses `render.yaml` automatically)**
+
+1. Go to [render.com/dashboard](https://dashboard.render.com) → **New** → **Blueprint**.
+2. Connect your GitHub repo (`Olly1206/event-planer-backend`).
+3. Render reads `render.yaml` and pre-fills all settings.
+4. In the *"Set secret env vars"* screen, paste your **`DATABASE_URL`** (JDBC format from Step 1).
+5. Click **Apply**.
+
+**Option B — Manual Web Service**
+
+1. Go to [render.com/dashboard](https://dashboard.render.com) → **New** → **Web Service**.
+2. Connect your GitHub repo.
+3. Set the following fields:
+
+   | Field | Value |
+   |---|---|
+   | **Runtime** | Docker |
+   | **Dockerfile path** | `./Dockerfile` |
+   | **Instance type** | Free (or higher) |
+   | **Port** | `8080` |
+
+4. Under **Environment Variables**, add:
+
+   | Key | Value |
+   |---|---|
+   | `DATABASE_URL` | Your JDBC URL from Step 1 |
+   | `JWT_SECRET` | Click *"Generate"* to let Render create a secure value |
+
+5. Click **Create Web Service**.
+
+#### 3 · First deploy
+
+Render will:
+1. Clone your repo.
+2. Build the Docker image (multi-stage — takes ~3–5 min on first run).
+3. Start the container on port `8080`.
+4. Hibernate auto-creates/updates tables on startup (`ddl-auto=update`).
+
+You can watch the build log live in the Render dashboard.
+
+#### 4 · Verify the deployment
+
+Once the status shows **Live**, open your service URL (e.g. `https://event-planer-backend.onrender.com`):
+
+```bash
+# Health-check — should return HTTP 200
+curl https://event-planer-backend.onrender.com/
+
+# Swagger UI (if enabled)
+open https://event-planer-backend.onrender.com/swagger-ui.html
+```
+
+#### 5 · Subsequent deploys
+
+Every push to your default branch (`master`) triggers an automatic redeploy.
+No manual action needed.
+
+---
+
+### Run with Docker locally
+
+```bash
+# Build
+docker build -t event-planer-backend .
+
+# Run (inject env vars inline)
+docker run -p 8080:8080 \
+  -e DATABASE_URL="jdbc:mysql://localhost:3306/event_manager_db?serverTimezone=UTC" \
+  -e DB_USERNAME=event_user \
+  -e DB_PASSWORD=yourpassword \
+  -e JWT_SECRET=your-secret \
+  event-planer-backend
+```
+
+### Production JAR (without Docker)
+
 ```bash
 # Build optimized JAR
 ./gradlew bootJar -x test
 
 # Run JAR
-java -jar build/libs/event-planner-backend-*.jar
+java -jar build/libs/project-0.0.1-SNAPSHOT.jar
 ```
 
 ## Frontend Integration

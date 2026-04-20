@@ -1,0 +1,33 @@
+# render.yaml – Infrastructure-as-Code for Render.com
+# Docs: https://render.com/docs/infrastructure-as-code
+#
+# To use this file:
+#  1. Push it to your GitHub repo.
+#  2. In the Render dashboard → "New Blueprint" → connect this repo.
+#  3. Fill in the sync:false env vars when prompted.
+
+services:
+  - type: web
+    name: event-planer-backend
+    runtime: docker            # Render will build & run your Dockerfile
+    plan: free                 # Change to "starter" or higher for production
+    dockerfilePath: ./Dockerfile
+
+    # healthCheckPath: /        # Uncomment and set a real health endpoint if available
+
+    envVars:
+      # Full JDBC connection URL for your external MySQL database.
+      # Format: jdbc:mysql://<host>:<port>/<dbname>?sslMode=REQUIRED&serverTimezone=UTC
+      # Recommended providers: PlanetScale, Railway, Aiven, or any MySQL 8+ host.
+      - key: DATABASE_URL
+        sync: false            # You will enter this value in the Render dashboard
+
+      # Fallback credentials — only needed if DATABASE_URL is NOT set.
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+      # JWT signing secret — Render auto-generates a cryptographically random value.
+      - key: JWT_SECRET
+        generateValue: true
