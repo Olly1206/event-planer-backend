@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title th:text="'You're invited: ' + ${event.title}">Event Invite</title>
+
+    <!-- Open Graph tags so the link looks nice when shared on WhatsApp / Telegram / etc. -->
+    <meta property="og:title"       th:content="${event.title}"/>
+    <meta property="og:description" th:content="${event.description != null ? event.description : 'You've been invited to an event!'}"/>
+    <meta property="og:type"        content="website"/>
+
+    <style>
+        /* ── Reset & base ────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+
+        /* ── Card ────────────────────────────────────────── */
+        .card {
+            background: #fff;
+            border-radius: 1.25rem;
+            box-shadow: 0 20px 60px rgba(0,0,0,.25);
+            max-width: 480px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        /* ── Header ──────────────────────────────────────── */
+        .card-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            padding: 2rem 1.5rem 1.5rem;
+            text-align: center;
+        }
+        .card-header .badge {
+            display: inline-block;
+            font-size: .75rem;
+            font-weight: 600;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+            background: rgba(255,255,255,.2);
+            padding: .25rem .75rem;
+            border-radius: 999px;
+            margin-bottom: .75rem;
+        }
+        .card-header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            line-height: 1.3;
+            margin-bottom: .35rem;
+        }
+        .card-header .organiser {
+            font-size: .85rem;
+            opacity: .85;
+        }
+
+        /* ── Body ────────────────────────────────────────── */
+        .card-body { padding: 1.5rem; }
+
+        .detail-row {
+            display: flex;
+            align-items: flex-start;
+            gap: .75rem;
+            padding: .65rem 0;
+        }
+        .detail-row + .detail-row { border-top: 1px solid #f0f0f0; }
+
+        .detail-icon {
+            flex-shrink: 0;
+            width: 2rem;
+            height: 2rem;
+            border-radius: .5rem;
+            background: #f0f0ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+        .detail-label {
+            font-size: .7rem;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: #888;
+            margin-bottom: .1rem;
+        }
+        .detail-value {
+            font-size: .95rem;
+            color: #333;
+        }
+
+        .description {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #fafafa;
+            border-radius: .75rem;
+            font-size: .9rem;
+            line-height: 1.55;
+            color: #555;
+        }
+
+        .options-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+            margin-top: .25rem;
+        }
+        .option-chip {
+            font-size: .75rem;
+            background: #eef;
+            color: #555;
+            padding: .2rem .6rem;
+            border-radius: 999px;
+        }
+
+        /* ── CTA ─────────────────────────────────────────── */
+        .card-actions {
+            padding: 0 1.5rem 1.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: .6rem;
+        }
+        .btn {
+            display: block;
+            width: 100%;
+            text-align: center;
+            text-decoration: none;
+            padding: .85rem 1rem;
+            border-radius: .75rem;
+            font-weight: 600;
+            font-size: .95rem;
+            transition: transform .15s, box-shadow .15s;
+            cursor: pointer;
+            border: none;
+        }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.15); }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+        }
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #555;
+        }
+
+        /* ── Footer ──────────────────────────────────────── */
+        .card-footer {
+            text-align: center;
+            padding: 0 1.5rem 1.25rem;
+            font-size: .75rem;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <!-- Header -->
+    <div class="card-header">
+        <div class="badge">You're Invited</div>
+        <h1 th:text="${event.title}">Event Title</h1>
+        <div class="organiser">
+            hosted by <strong th:text="${event.organiserUsername}">organiser</strong>
+        </div>
+    </div>
+
+    <!-- Details -->
+    <div class="card-body">
+        <!-- Date -->
+        <div class="detail-row" th:if="${formattedDate != null}">
+            <div class="detail-icon">📅</div>
+            <div>
+                <div class="detail-label">When</div>
+                <div class="detail-value" th:text="${formattedDate}">Saturday, 15 June 2025 · 18:00</div>
+                <div class="detail-value" th:if="${formattedEndDate != null}"
+                     th:text="'until ' + ${formattedEndDate}"
+                     style="font-size:.82rem;color:#888;margin-top:.15rem;">
+                </div>
+            </div>
+        </div>
+
+        <!-- Location -->
+        <div class="detail-row" th:if="${event.locationName != null}">
+            <div class="detail-icon">📍</div>
+            <div>
+                <div class="detail-label">Where</div>
+                <div class="detail-value" th:text="${event.locationName}">Venue Name</div>
+                <div class="detail-value" th:if="${event.locationType != null}"
+                     th:text="${event.locationType}"
+                     style="font-size:.78rem;color:#888;margin-top:.1rem;">
+                </div>
+            </div>
+        </div>
+
+        <!-- Type -->
+        <div class="detail-row" th:if="${event.eventTypeName != null}">
+            <div class="detail-icon">🏷️</div>
+            <div>
+                <div class="detail-label">Type</div>
+                <div class="detail-value" th:text="${event.eventTypeName}">Party</div>
+            </div>
+        </div>
+
+        <!-- Capacity -->
+        <div class="detail-row" th:if="${event.maxParticipants != null}">
+            <div class="detail-icon">👥</div>
+            <div>
+                <div class="detail-label">Spots</div>
+                <div class="detail-value"
+                     th:text="${event.currentParticipantCount} + ' / ' + ${event.maxParticipants} + ' joined'">
+                    3 / 50 joined
+                </div>
+            </div>
+        </div>
+
+        <!-- Selected options -->
+        <div class="detail-row" th:if="${event.selectedOptions != null and !event.selectedOptions.isEmpty()}">
+            <div class="detail-icon">✨</div>
+            <div>
+                <div class="detail-label">Includes</div>
+                <div class="options-list">
+                    <span class="option-chip" th:each="opt : ${event.selectedOptions}" th:text="${opt}">Catering</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Description -->
+        <div class="description" th:if="${event.description != null}" th:text="${event.description}">
+            Event description goes here...
+        </div>
+    </div>
+
+    <!-- Call to action -->
+    <div class="card-actions">
+        <a class="btn btn-primary" th:href="${deepLink}">Open in App</a>
+        <a class="btn btn-secondary"
+           th:href="'/api/events/invite/' + ${token}"
+           >View Event Details (JSON)</a>
+    </div>
+
+    <div class="card-footer">
+        EventPlanner &middot; Share the moment
+    </div>
+</div>
+
+</body>
+</html>
