@@ -3,7 +3,8 @@
 FROM eclipse-temurin:25-jdk AS build
 WORKDIR /app
 COPY . .
-RUN chmod +x gradlew && ./gradlew clean bootJar --no-daemon -x test
+RUN chmod +x gradlew && \
+    SPRING_PROFILES_ACTIVE=build ./gradlew clean bootJar --no-daemon -x test
 
 FROM eclipse-temurin:25-jre
 WORKDIR /app
