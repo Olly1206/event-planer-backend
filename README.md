@@ -63,8 +63,10 @@ The API will be available at `http://localhost:8080`
 - `GET /api/events/{id}/invite-link` - Get event's invite token (organiser only)
 
 ### Venue Endpoints
-- `GET /api/venues/search` - Search venues by location, filters
-- `POST /api/venues/nearby` - Find nearby venues with geolocation
+- `GET /api/venues` - Search venues by city, filters, optional `countryCode`; results are sorted by distance
+
+### Vendor Endpoints
+- `GET /api/vendors` - Search vendors by city and one or more `optionName` values; duplicate vendors are merged and results are sorted by distance
 
 ### Reference Data
 - `GET /api/events/types` - Available event types

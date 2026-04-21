@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -27,8 +26,7 @@ class WeatherServiceTest {
 
     @BeforeEach
     void setUp() {
-        weatherService = new WeatherService();
-        ReflectionTestUtils.setField(weatherService, "restTemplate", restTemplate);
+        weatherService = new WeatherService(restTemplate);
     }
 
     // ── Helpers to build Open-Meteo response stubs ──────────────────────────
@@ -78,6 +76,16 @@ class WeatherServiceTest {
             emptyGeo.setResults(List.of());
             when(restTemplate.getForObject(contains("geocoding"), eq(GeocodingResponse.class)))
                     .thenReturn(emptyGeo);
+
+            List<WeatherData> result = weatherService.getWeatherForRange("Nowhere", "2025-01-01", "2025-01-01");
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        void returnsEmptyListWhenGeocodingThrows() {
+            when(restTemplate.getForObject(contains("geocoding"), eq(GeocodingResponse.class)))
+                    .thenThrow(new RuntimeException("API down"));
 
             List<WeatherData> result = weatherService.getWeatherForRange("Nowhere", "2025-01-01", "2025-01-01");
 
@@ -227,6 +235,13 @@ class WeatherServiceTest {
             assertThat(result.getTemperature()).isEqualTo(0);
             assertThat(result.getHumidity()).isEqualTo(0);
         }
+
+        @Test
+        void throwsWhenDateIsBlank() {
+            assertThatThrownBy(() -> weatherService.getWeatherForCity("Berlin", " "))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("startDate is required");
+        }
     }
 
     // ── WMO code coverage ───────────────────────────────────────────────────
@@ -258,6 +273,22 @@ class WeatherServiceTest {
                         .as("WMO code %d", codes[i])
                         .isEqualTo(expected[i]);
             }
+        }
+
+        @Test
+        void rejectsRangesLongerThan16Days() {
+            assertThatThrownBy(() -> weatherService.getWeatherForRange(
+                    "Berlin", "2025-07-01", "2025-07-20"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("16 days or less");
+        }
+
+        @Test
+        void rejectsEndDateBeforeStartDate() {
+            assertThatThrownBy(() -> weatherService.getWeatherForRange(
+                    "Berlin", "2025-07-03", "2025-07-01"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("on or after startDate");
         }
     }
 }

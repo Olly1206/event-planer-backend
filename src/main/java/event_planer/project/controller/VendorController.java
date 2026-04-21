@@ -17,12 +17,14 @@ import lombok.RequiredArgsConstructor;
  * Vendor / service-provider suggestions powered by OpenStreetMap Overpass.
  *
  * Single option:
- *   GET /api/vendors?city=Berlin&optionName=Catering&radiusMeters=5000
+ *   GET /api/vendors?city=Berlin&optionName=Catering&radiusMeters=5000&countryCode=de
  *
  * Multiple options at once (for an event that has several selected options):
  *   GET /api/vendors?city=Berlin&optionName=Catering&optionName=Photography&radiusMeters=5000
  *
  * Public endpoint — no auth required (vendor browsing is informational only).
+ * Results are sorted by distance and duplicate businesses are merged when a
+ * multi-option search matches the same vendor more than once.
  */
 @RestController
 @RequestMapping("/api/vendors")
@@ -36,13 +38,14 @@ public class VendorController {
     public ResponseEntity<List<VendorResponse>> getVendors(
             @RequestParam String city,
             @RequestParam List<String> optionName,
-            @RequestParam(defaultValue = "5000") int radiusMeters) {
+            @RequestParam(defaultValue = "5000") int radiusMeters,
+            @RequestParam(required = false) String countryCode) {
 
         List<VendorResponse> results;
         if (optionName.size() == 1) {
-            results = vendorService.getVendors(city, radiusMeters, optionName.get(0));
+            results = vendorService.getVendors(city, radiusMeters, optionName.get(0), countryCode);
         } else {
-            results = vendorService.getVendorsForMultipleOptions(city, radiusMeters, optionName);
+            results = vendorService.getVendorsForMultipleOptions(city, radiusMeters, optionName, countryCode);
         }
         return ResponseEntity.ok(results);
     }

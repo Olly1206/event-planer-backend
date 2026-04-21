@@ -10,8 +10,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpEntity;
@@ -87,6 +90,12 @@ class VenueServiceTest {
         void outdoorExcludesIndoorVenues() {
             List<String> filters = invokeFilters("OUTDOOR", null);
             assertThat(filters).noneMatch(f -> f.contains("conference_centre"));
+        }
+
+        @Test
+        void outdoorExcludesLowSignalGrassFallback() {
+            List<String> filters = invokeFilters("OUTDOOR", null);
+            assertThat(filters).noneMatch(f -> f.contains("landuse"));
         }
 
         @Test
@@ -204,6 +213,7 @@ class VenueServiceTest {
             assertThat(venue.getCategory()).isEqualTo("Conference Centre");
             assertThat(venue.getWebsite()).isEqualTo("https://example.com");
             assertThat(venue.getPhone()).isEqualTo("+49 30 1234567");
+            assertThat(venue.getDistanceMeters()).isNotNull();
         }
 
         @Test
@@ -286,6 +296,60 @@ class VenueServiceTest {
             assertThat(result).hasSize(1);
             assertThat(result.get(0).getLat()).isEqualTo(52.530);
             assertThat(result.get(0).getLon()).isEqualTo(13.420);
+        }
+
+        @Test
+        void sortsResultsByDistanceAscending() {
+            VenueService.NominatimResult nr = new VenueService.NominatimResult();
+            nr.setLat("52.52");
+            nr.setLon("13.405");
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class),
+                    eq(VenueService.NominatimResult[].class)))
+                    .thenReturn(ResponseEntity.ok(new VenueService.NominatimResult[]{nr}));
+
+            String overpassJson = """
+                    {
+                      "elements": [
+                        { "id": 1, "lat": 52.560, "lon": 13.450, "tags": { "name": "Far Venue", "amenity": "conference_centre" } },
+                        { "id": 2, "lat": 52.521, "lon": 13.406, "tags": { "name": "Near Venue", "amenity": "conference_centre" } }
+                      ]
+                    }
+                    """;
+            when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
+                    .thenReturn(overpassJson);
+
+            List<VenueResponse> result = venueService.getVenues("Berlin", 5000, "INDOOR", "conference");
+
+            assertThat(result).extracting(VenueResponse::getName)
+                    .containsExactly("Near Venue", "Far Venue");
+            assertThat(result.get(0).getDistanceMeters()).isLessThan(result.get(1).getDistanceMeters());
+        }
+
+        @Test
+        void cachesRepeatedVenueSearches() {
+            VenueService.NominatimResult nr = new VenueService.NominatimResult();
+            nr.setLat("52.52");
+            nr.setLon("13.405");
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class),
+                    eq(VenueService.NominatimResult[].class)))
+                    .thenReturn(ResponseEntity.ok(new VenueService.NominatimResult[]{nr}));
+            when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
+                    .thenReturn("""
+                            {
+                              "elements": [
+                                { "id": 1, "lat": 52.521, "lon": 13.406, "tags": { "name": "Cached Venue", "amenity": "conference_centre" } }
+                              ]
+                            }
+                            """);
+
+            List<VenueResponse> first = venueService.getVenues("Berlin", 5000, "INDOOR", "conference", "de");
+            List<VenueResponse> second = venueService.getVenues("Berlin", 5000, "INDOOR", "conference", "de");
+
+            assertThat(first).hasSize(1);
+            assertThat(second).hasSize(1);
+            verify(restTemplate, times(1)).exchange(contains("countrycodes=de"), eq(HttpMethod.GET), any(HttpEntity.class),
+                    eq(VenueService.NominatimResult[].class));
+            verify(restTemplate, times(1)).postForObject(anyString(), any(), eq(String.class));
         }
     }
 }

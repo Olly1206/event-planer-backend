@@ -23,30 +23,30 @@ class VendorControllerTest {
 
     @Test
     void singleOptionDelegatesToGetVendors() {
-        VendorResponse vendor = new VendorResponse(1L, "Caterer A", "Berlin", 52.5, 13.4,
-                "Caterer", "Catering", null, null, null);
-        when(vendorService.getVendors("Berlin", 5000, "Catering"))
+        VendorResponse vendor = new VendorResponse(1L, "Caterer A", "Berlin", 52.5, 13.4, 400,
+                "Caterer", "Catering", List.of("Catering"), null, null, null);
+        when(vendorService.getVendors("Berlin", 5000, "Catering", "de"))
                 .thenReturn(List.of(vendor));
 
         ResponseEntity<List<VendorResponse>> response =
-                vendorController.getVendors("Berlin", List.of("Catering"), 5000);
+                vendorController.getVendors("Berlin", List.of("Catering"), 5000, "de");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).hasSize(1);
-        verify(vendorService).getVendors("Berlin", 5000, "Catering");
-        verify(vendorService, never()).getVendorsForMultipleOptions(any(), anyInt(), any());
+        verify(vendorService).getVendors("Berlin", 5000, "Catering", "de");
+        verify(vendorService, never()).getVendorsForMultipleOptions(any(), anyInt(), any(), any());
     }
 
     @Test
     void multipleOptionsDelegatesToGetVendorsForMultipleOptions() {
         List<String> options = List.of("Catering", "Photography");
-        when(vendorService.getVendorsForMultipleOptions("Berlin", 5000, options))
+        when(vendorService.getVendorsForMultipleOptions("Berlin", 5000, options, null))
                 .thenReturn(List.of());
 
         ResponseEntity<List<VendorResponse>> response =
-                vendorController.getVendors("Berlin", options, 5000);
+                vendorController.getVendors("Berlin", options, 5000, null);
 
-        verify(vendorService).getVendorsForMultipleOptions("Berlin", 5000, options);
-        verify(vendorService, never()).getVendors(any(), anyInt(), any());
+        verify(vendorService).getVendorsForMultipleOptions("Berlin", 5000, options, null);
+        verify(vendorService, never()).getVendors(any(), anyInt(), any(), any());
     }
 }

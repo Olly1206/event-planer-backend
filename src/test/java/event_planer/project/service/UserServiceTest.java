@@ -3,9 +3,14 @@ package event_planer.project.service;
 import event_planer.project.dto.auth.AuthResponse;
 import event_planer.project.dto.auth.LoginRequest;
 import event_planer.project.dto.auth.RegisterRequest;
+import event_planer.project.entity.Event;
+import event_planer.project.entity.EventParticipant;
+import event_planer.project.entity.EventParticipantId;
 import event_planer.project.dto.user.UserResponse;
 import event_planer.project.entity.User;
 import event_planer.project.exception.ResourceNotFoundException;
+import event_planer.project.repository.EventParticipantRepository;
+import event_planer.project.repository.EventRepository;
 import event_planer.project.repository.UserRepository;
 import event_planer.project.security.JwtService;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,6 +22,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.*;
@@ -29,6 +35,8 @@ class UserServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private JwtService jwtService;
+    @Mock private EventRepository eventRepository;
+    @Mock private EventParticipantRepository eventParticipantRepository;
 
     @InjectMocks
     private UserService userService;
@@ -134,6 +142,32 @@ class UserServiceTest {
                             && !user.getPasswordHash().equals("mySecret")
             ));
         }
+
+        @Test
+        void rejectsAdminRegistration() {
+            RegisterRequest request = new RegisterRequest();
+            request.setUsername("boss");
+            request.setEmail("boss@example.com");
+            request.setPassword("password123");
+            request.setRole(User.Role.ADMIN);
+
+            assertThatThrownBy(() -> userService.register(request))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("PRIVATE or COMPANY");
+        }
+
+        @Test
+        void rejectsGuestRegistration() {
+            RegisterRequest request = new RegisterRequest();
+            request.setUsername("guestish");
+            request.setEmail("guestish@example.com");
+            request.setPassword("password123");
+            request.setRole(User.Role.GUEST);
+
+            assertThatThrownBy(() -> userService.register(request))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("PRIVATE or COMPANY");
+        }
     }
 
     // ── Login ──────────────────────────────────────────────────────────────────
@@ -184,6 +218,27 @@ class UserServiceTest {
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("Incorrect password");
         }
+
+        @Test
+        void rejectsGuestEmailPasswordLogin() {
+            User guest = User.builder()
+                    .id(7L)
+                    .username("guest_12345678")
+                    .email("guest_12345678@guest.eventplanner.local")
+                    .passwordHash("$2a$10$guesthash")
+                    .role(User.Role.GUEST)
+                    .build();
+
+            LoginRequest request = new LoginRequest();
+            request.setEmail(guest.getEmail());
+            request.setPassword("anything");
+
+            when(userRepository.findByEmail(guest.getEmail())).thenReturn(Optional.of(guest));
+
+            assertThatThrownBy(() -> userService.login(request))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Guest accounts cannot log in");
+        }
     }
 
     // ── GetUserById ────────────────────────────────────────────────────────────
@@ -225,6 +280,7 @@ class UserServiceTest {
                 u.setId(99L);
                 return u;
             });
+            when(passwordEncoder.encode(anyString())).thenReturn("$2a$10$guesthash");
             when(jwtService.generateToken(99L, "GUEST")).thenReturn("guest-jwt-token");
 
             var response = userService.createGuestUser();
@@ -237,8 +293,8 @@ class UserServiceTest {
 
             verify(userRepository).save(argThat(user ->
                     user.getUsername().startsWith("guest_")
-                            && user.getEmail() == null
-                            && user.getPasswordHash() == null
+                            && user.getEmail().endsWith("@guest.eventplanner.local")
+                            && user.getPasswordHash().equals("$2a$10$guesthash")
                             && user.getRole() == User.Role.GUEST
             ));
         }
@@ -250,11 +306,55 @@ class UserServiceTest {
                 u.setId(100L);
                 return u;
             });
+            when(passwordEncoder.encode(anyString())).thenReturn("$2a$10$guesthash");
             when(jwtService.generateToken(100L, "GUEST")).thenReturn("guest-token-xyz");
 
             userService.createGuestUser();
 
             verify(jwtService).generateToken(100L, "GUEST");
+        }
+
+        @Test
+        void mergeGuestEventsRecreatesParticipantWithNewCompositeKey() {
+            User guest = User.builder()
+                    .id(10L)
+                    .username("guest_12345678")
+                    .email("guest_12345678@guest.eventplanner.local")
+                    .passwordHash("$2a$10$guesthash")
+                    .role(User.Role.GUEST)
+                    .deviceUuid("device-123")
+                    .build();
+            User registeredUser = User.builder()
+                    .id(20L)
+                    .username("alice")
+                    .email("alice@example.com")
+                    .passwordHash("$2a$10$realhash")
+                    .role(User.Role.PRIVATE)
+                    .build();
+            Event event = Event.builder().id(55L).title("Event").organiser(guest).build();
+            EventParticipant participation = EventParticipant.builder()
+                    .id(new EventParticipantId(55L, 10L))
+                    .event(event)
+                    .user(guest)
+                    .participantName("Alice Guest")
+                    .build();
+
+            when(userRepository.findByDeviceUuid("device-123")).thenReturn(Optional.of(guest));
+            when(userRepository.findById(20L)).thenReturn(Optional.of(registeredUser));
+            when(eventRepository.findByOrganiserId(10L)).thenReturn(List.of(event));
+            when(eventParticipantRepository.findByUserId(10L)).thenReturn(List.of(participation));
+            when(eventParticipantRepository.existsByEventIdAndUserId(55L, 20L)).thenReturn(false);
+
+            userService.mergeGuestEvents("device-123", 20L);
+
+            verify(eventParticipantRepository).delete(participation);
+            verify(eventParticipantRepository).save(argThat(saved ->
+                    saved.getId().equals(new EventParticipantId(55L, 20L))
+                            && saved.getUser().equals(registeredUser)
+                            && saved.getEvent().equals(event)
+                            && saved.getParticipantName().equals("Alice Guest")
+            ));
+            verify(userRepository).delete(guest);
         }
     }
 }

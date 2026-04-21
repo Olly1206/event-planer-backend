@@ -23,13 +23,13 @@ class VenueControllerTest {
 
     @Test
     void delegatesToServiceWithAllParams() {
-        VenueResponse venue = new VenueResponse(1L, "Test Venue", "Berlin", 52.5, 13.4,
+        VenueResponse venue = new VenueResponse(1L, "Test Venue", "Berlin", 52.5, 13.4, 250,
                 "Conference Centre", null, null, null);
-        when(venueService.getVenues("Berlin", 3000, "INDOOR", "conference"))
+        when(venueService.getVenues("Berlin", 3000, "INDOOR", "conference", "de"))
                 .thenReturn(List.of(venue));
 
         ResponseEntity<List<VenueResponse>> response =
-                venueController.getVenues("Berlin", 3000, "INDOOR", "conference");
+                venueController.getVenues("Berlin", 3000, "INDOOR", "conference", "de");
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody()).hasSize(1);
@@ -38,11 +38,11 @@ class VenueControllerTest {
 
     @Test
     void passesNullForOptionalParams() {
-        when(venueService.getVenues("Berlin", 5000, null, null))
+        when(venueService.getVenues("Berlin", 5000, null, null, null))
                 .thenReturn(List.of());
 
         ResponseEntity<List<VenueResponse>> response =
-                venueController.getVenues("Berlin", 5000, null, null);
+                venueController.getVenues("Berlin", 5000, null, null, null);
 
         assertThat(response.getBody()).isEmpty();
     }

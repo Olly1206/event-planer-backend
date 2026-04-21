@@ -13,6 +13,7 @@ public class VenueResponse {
     private String address;
     private Double lat;
     private Double lon;
+    private Integer distanceMeters;
     private String category;
     private String website;
     private String phone;

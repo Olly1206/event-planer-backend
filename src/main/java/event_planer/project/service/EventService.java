@@ -225,7 +225,7 @@ public class EventService {
      */
     @Transactional
     public void joinEventWithName(Long eventId, Long userId, String participantName) {
-        Event event = eventRepository.findById(eventId)
+        Event event = eventRepository.findByIdForUpdate(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
 
         if (eventParticipantRepository.existsByEventIdAndUserId(eventId, userId)) {
@@ -313,7 +313,7 @@ public class EventService {
      */
     @Transactional
     public void joinByTokenWithName(String token, Long userId, String participantName) {
-        Event event = eventRepository.findByInviteToken(token)
+        Event event = eventRepository.findByInviteTokenForUpdate(token)
                 .orElseThrow(() -> new ResourceNotFoundException("Invalid invite link"));
 
         if (eventParticipantRepository.existsByEventIdAndUserId(event.getId(), userId)) {

@@ -1,5 +1,9 @@
 package event_planer.project.service;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +16,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import event_planer.project.dto.WeatherData;
 import lombok.Data;
+import lombok.RequiredArgsConstructor;
 
 /**
  * Fetches weather forecasts from Open-Meteo (https://open-meteo.com/).
@@ -25,9 +30,10 @@ import lombok.Data;
  *   3. Map WMO weather codes to human-readable descriptions.
  */
 @Service
+@RequiredArgsConstructor
 public class WeatherService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
     private static final String GEOCODING_URL =
             "https://geocoding-api.open-meteo.com/v1/search";
@@ -86,10 +92,19 @@ public class WeatherService {
      * @param endDate   "yyyy-MM-dd"
      */
     public List<WeatherData> getWeatherForRange(String city, String startDate, String endDate) {
+        LocalDate parsedStartDate = parseDate(startDate, "startDate");
+        LocalDate parsedEndDate = parseDate(endDate, "endDate");
+        validateDateRange(parsedStartDate, parsedEndDate);
+
         // Step 1: geocode city name → latitude / longitude
-        String geocodeUrl = GEOCODING_URL + "?name=" + city.replace(" ", "+")
+        String geocodeUrl = GEOCODING_URL + "?name=" + URLEncoder.encode(city, StandardCharsets.UTF_8)
                 + "&count=1&language=en&format=json";
-        GeocodingResponse geo = restTemplate.getForObject(geocodeUrl, GeocodingResponse.class);
+        GeocodingResponse geo;
+        try {
+            geo = restTemplate.getForObject(geocodeUrl, GeocodingResponse.class);
+        } catch (Exception e) {
+            return List.of();
+        }
 
         if (geo == null || geo.results == null || geo.results.isEmpty()) {
             return List.of();
@@ -104,8 +119,8 @@ public class WeatherService {
                 + "&longitude=" + lon
                 + "&daily=temperature_2m_max,precipitation_probability_max,weather_code"
                 + "&timezone=auto"
-                + "&start_date=" + startDate
-                + "&end_date=" + endDate;
+                + "&start_date=" + parsedStartDate
+                + "&end_date=" + parsedEndDate;
 
         ForecastResponse forecast;
         try {
@@ -138,6 +153,28 @@ public class WeatherService {
 
     private int safeInt(List<Integer> list, int i) {
         return (list != null && i < list.size() && list.get(i) != null) ? list.get(i) : 0;
+    }
+
+    private LocalDate parseDate(String rawDate, String fieldName) {
+        if (rawDate == null || rawDate.isBlank()) {
+            throw new IllegalArgumentException(fieldName + " is required");
+        }
+        try {
+            return LocalDate.parse(rawDate);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(fieldName + " must use yyyy-MM-dd");
+        }
+    }
+
+    private void validateDateRange(LocalDate startDate, LocalDate endDate) {
+        if (endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException("endDate must be on or after startDate");
+        }
+
+        long days = ChronoUnit.DAYS.between(startDate, endDate);
+        if (days > 15) {
+            throw new IllegalArgumentException("Date range must be 16 days or less");
+        }
     }
 
     // ─── Internal DTOs for Open-Meteo ────────────────────────────────────────

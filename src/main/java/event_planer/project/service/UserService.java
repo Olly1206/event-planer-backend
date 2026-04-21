@@ -16,6 +16,7 @@ import event_planer.project.dto.auth.RegisterRequest;
 import event_planer.project.dto.user.UserResponse;
 import event_planer.project.entity.Event;
 import event_planer.project.entity.EventParticipant;
+import event_planer.project.entity.EventParticipantId;
 import event_planer.project.entity.User;
 import event_planer.project.exception.ResourceNotFoundException;
 import event_planer.project.repository.EventParticipantRepository;
@@ -27,6 +28,8 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class UserService {
+
+    private static final String GUEST_EMAIL_DOMAIN = "guest.eventplanner.local";
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -45,6 +48,8 @@ public class UserService {
      */
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        validateRegistrableRole(request.getRole());
+
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email is already registered");
         }
@@ -81,6 +86,10 @@ public class UserService {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("No account found with that email"));
 
+        if (user.getRole() == User.Role.GUEST || user.getPasswordHash() == null) {
+            throw new IllegalArgumentException("Guest accounts cannot log in with email and password");
+        }
+
         // passwordEncoder.matches() hashes the raw input and compares — no plaintext stored
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Incorrect password");
@@ -113,16 +122,18 @@ public class UserService {
     @Transactional
     public GuestAuthResponse createGuestUser() {
         String deviceUuid = UUID.randomUUID().toString();
+        String guestSecret = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime expiresAt = now.plusDays(30);
 
         User guest = User.builder()
                 .username("guest_" + deviceUuid.substring(0, 8))  // Unique temporary username
-                .email(null)                                      // Guests have no email
-                .passwordHash(null)                               // Guests have no password
+                // Internal-only placeholder credentials keep DB constraints satisfied
+                // while still preventing normal email/password login for guests.
+                .email("guest_" + deviceUuid.substring(0, 8) + "@" + GUEST_EMAIL_DOMAIN)
+                .passwordHash(passwordEncoder.encode(guestSecret))
                 .role(User.Role.GUEST)
                 .deviceUuid(deviceUuid)
-                .createdAt(now)
                 .expiresAt(expiresAt)
                 .build();
 
@@ -171,8 +182,22 @@ public class UserService {
         // Migrate event participations where guest was participant
         List<EventParticipant> guestParticipations = eventParticipantRepository.findByUserId(guestUser.getId());
         for (EventParticipant participation : guestParticipations) {
-            participation.setUser(newUser);
-            eventParticipantRepository.save(participation);
+            Long eventId = participation.getEvent().getId();
+            boolean alreadyJoined = eventParticipantRepository.existsByEventIdAndUserId(eventId, newUserId);
+
+            eventParticipantRepository.delete(participation);
+            if (alreadyJoined) {
+                continue;
+            }
+
+            EventParticipant migratedParticipation = EventParticipant.builder()
+                    .id(new EventParticipantId(eventId, newUserId))
+                    .event(participation.getEvent())
+                    .user(newUser)
+                    .participantName(participation.getParticipantName())
+                    .joinedAt(participation.getJoinedAt())
+                    .build();
+            eventParticipantRepository.save(migratedParticipation);
         }
 
         // Delete the guest user account (cascade will remove any remaining orphaned records)
@@ -214,5 +239,11 @@ public class UserService {
         response.setRole(user.getRole());
         response.setCreatedAt(user.getCreatedAt());
         return response;
+    }
+
+    private void validateRegistrableRole(User.Role role) {
+        if (role == User.Role.ADMIN || role == User.Role.GUEST) {
+            throw new IllegalArgumentException("Only PRIVATE or COMPANY accounts can be registered here");
+        }
     }
 }

@@ -34,7 +34,7 @@ public class WeatherController {
     @GetMapping
     public ResponseEntity<WeatherData> getWeather(
             @RequestParam String city,
-            @RequestParam(required = false, defaultValue = "") String date) {
+            @RequestParam String date) {
         WeatherData data = weatherService.getWeatherForCity(city, date);
         return ResponseEntity.ok(data);
     }

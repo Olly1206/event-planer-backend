@@ -308,7 +308,7 @@ class EventServiceTest {
         @Test
         void joinsSuccessfully() {
             User joiner = User.builder().id(2L).username("bob").build();
-            when(eventRepository.findById(100L)).thenReturn(Optional.of(publicEvent));
+            when(eventRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(publicEvent));
             when(eventParticipantRepository.existsByEventIdAndUserId(100L, 2L)).thenReturn(false);
             when(eventParticipantRepository.findByEventId(100L)).thenReturn(List.of());
             when(userRepository.findById(2L)).thenReturn(Optional.of(joiner));
@@ -320,7 +320,7 @@ class EventServiceTest {
 
         @Test
         void throwsWhenAlreadyJoined() {
-            when(eventRepository.findById(100L)).thenReturn(Optional.of(publicEvent));
+            when(eventRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(publicEvent));
             when(eventParticipantRepository.existsByEventIdAndUserId(100L, 2L)).thenReturn(true);
 
             assertThatThrownBy(() -> eventService.joinEvent(100L, 2L))
@@ -333,7 +333,7 @@ class EventServiceTest {
             publicEvent.setMaxParticipants(1);
             EventParticipant existing = new EventParticipant();
 
-            when(eventRepository.findById(100L)).thenReturn(Optional.of(publicEvent));
+            when(eventRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(publicEvent));
             when(eventParticipantRepository.existsByEventIdAndUserId(100L, 2L)).thenReturn(false);
             when(eventParticipantRepository.findByEventId(100L)).thenReturn(List.of(existing));
 
@@ -410,7 +410,7 @@ class EventServiceTest {
             publicEvent.setMaxParticipants(1);
             EventParticipant existing = new EventParticipant();
 
-            when(eventRepository.findByInviteToken("abc-123")).thenReturn(Optional.of(publicEvent));
+            when(eventRepository.findByInviteTokenForUpdate("abc-123")).thenReturn(Optional.of(publicEvent));
             when(eventParticipantRepository.existsByEventIdAndUserId(100L, 2L)).thenReturn(false);
             when(eventParticipantRepository.findByEventId(100L)).thenReturn(List.of(existing));
 

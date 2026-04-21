@@ -14,10 +14,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 /**
- * GET /api/venues?city=Berlin&radiusMeters=5000&locationType=INDOOR&eventType=Conference
+ * GET /api/venues?city=Berlin&radiusMeters=5000&locationType=INDOOR&eventType=Conference&countryCode=de
  *
  * Public endpoint — no auth required (venue browsing is informational only).
- * Proxies geo-data from Nominatim + OpenStreetMap Overpass API.
+ * Proxies geo-data from Nominatim + OpenStreetMap Overpass API and returns the
+ * closest matching venues first.
  */
 @RestController
 @RequestMapping("/api/venues")
@@ -32,8 +33,9 @@ public class VenueController {
             @RequestParam String city,
             @RequestParam(defaultValue = "5000") int radiusMeters,
             @RequestParam(required = false) String locationType,
-            @RequestParam(required = false) String eventType) {
+            @RequestParam(required = false) String eventType,
+            @RequestParam(required = false) String countryCode) {
         return ResponseEntity.ok(
-                venueService.getVenues(city, radiusMeters, locationType, eventType));
+                venueService.getVenues(city, radiusMeters, locationType, eventType, countryCode));
     }
 }

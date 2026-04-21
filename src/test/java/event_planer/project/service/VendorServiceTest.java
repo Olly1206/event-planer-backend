@@ -10,8 +10,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpEntity;
@@ -186,13 +189,6 @@ class VendorServiceTest {
 
         @Test
         void returnsEmptyForNullOption() {
-            VendorService.NominatimResult nr = new VendorService.NominatimResult();
-            nr.setLat("52.52");
-            nr.setLon("13.405");
-            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class),
-                    eq(VendorService.NominatimResult[].class)))
-                    .thenReturn(ResponseEntity.ok(new VendorService.NominatimResult[]{nr}));
-
             List<VendorResponse> result = vendorService.getVendors("Berlin", 5000, null);
 
             assertThat(result).isEmpty();
@@ -235,7 +231,61 @@ class VendorServiceTest {
             assertThat(vendor.getName()).isEqualTo("Mario's Catering");
             assertThat(vendor.getCategory()).isEqualTo("Caterer");
             assertThat(vendor.getOptionName()).isEqualTo("Catering");
+            assertThat(vendor.getMatchedOptions()).containsExactly("Catering");
             assertThat(vendor.getPhone()).isEqualTo("+49 30 9876543");
+            assertThat(vendor.getDistanceMeters()).isNotNull();
+        }
+
+        @Test
+        void sortsResultsByDistanceAscending() {
+            VendorService.NominatimResult nr = new VendorService.NominatimResult();
+            nr.setLat("52.52");
+            nr.setLon("13.405");
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class),
+                    eq(VendorService.NominatimResult[].class)))
+                    .thenReturn(ResponseEntity.ok(new VendorService.NominatimResult[]{nr}));
+
+            String json = """
+                    {
+                      "elements": [
+                        { "id": 1, "lat": 52.560, "lon": 13.450, "tags": { "name": "Far Caterer", "craft": "caterer" } },
+                        { "id": 2, "lat": 52.521, "lon": 13.406, "tags": { "name": "Near Caterer", "craft": "caterer" } }
+                      ]
+                    }
+                    """;
+            when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn(json);
+
+            List<VendorResponse> result = vendorService.getVendors("Berlin", 5000, "Catering");
+
+            assertThat(result).extracting(VendorResponse::getName)
+                    .containsExactly("Near Caterer", "Far Caterer");
+            assertThat(result.get(0).getDistanceMeters()).isLessThan(result.get(1).getDistanceMeters());
+        }
+
+        @Test
+        void cachesRepeatedVendorSearches() {
+            VendorService.NominatimResult nr = new VendorService.NominatimResult();
+            nr.setLat("52.52");
+            nr.setLon("13.405");
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class),
+                    eq(VendorService.NominatimResult[].class)))
+                    .thenReturn(ResponseEntity.ok(new VendorService.NominatimResult[]{nr}));
+            when(restTemplate.postForObject(anyString(), any(), eq(String.class))).thenReturn("""
+                    {
+                      "elements": [
+                        { "id": 1, "lat": 52.521, "lon": 13.406, "tags": { "name": "Cached Caterer", "craft": "caterer" } }
+                      ]
+                    }
+                    """);
+
+            List<VendorResponse> first = vendorService.getVendors("Berlin", 5000, "Catering", "de");
+            List<VendorResponse> second = vendorService.getVendors("Berlin", 5000, "Catering", "de");
+
+            assertThat(first).hasSize(1);
+            assertThat(second).hasSize(1);
+            verify(restTemplate, times(1)).exchange(contains("countrycodes=de"), eq(HttpMethod.GET), any(HttpEntity.class),
+                    eq(VendorService.NominatimResult[].class));
+            verify(restTemplate, times(1)).postForObject(anyString(), any(), eq(String.class));
         }
     }
 
@@ -282,6 +332,34 @@ class VendorServiceTest {
             assertThat(result).hasSize(2);
             assertThat(result).extracting(VendorResponse::getName)
                     .containsExactly("Caterer A", "Photo B");
+        }
+
+        @Test
+        void deduplicatesSameVendorAcrossMultipleOptionsAndMergesMatches() {
+            VendorService.NominatimResult nr = new VendorService.NominatimResult();
+            nr.setLat("52.52");
+            nr.setLon("13.405");
+            when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class),
+                    eq(VendorService.NominatimResult[].class)))
+                    .thenReturn(ResponseEntity.ok(new VendorService.NominatimResult[]{nr}));
+
+            String cateringJson = """
+                    { "elements": [{ "id": 7, "lat": 52.521, "lon": 13.406, "tags": { "name": "Studio X", "craft": "caterer" } }] }
+                    """;
+            String photographyJson = """
+                    { "elements": [{ "id": 7, "lat": 52.521, "lon": 13.406, "tags": { "name": "Studio X", "craft": "photographer" } }] }
+                    """;
+
+            when(restTemplate.postForObject(anyString(), any(), eq(String.class)))
+                    .thenReturn(cateringJson, photographyJson);
+
+            List<VendorResponse> result = vendorService.getVendorsForMultipleOptions(
+                    "Berlin", 5000, List.of("Catering", "Photography"));
+
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getName()).isEqualTo("Studio X");
+            assertThat(result.get(0).getMatchedOptions())
+                    .containsExactly("Catering", "Photography");
         }
     }
 }
