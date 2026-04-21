@@ -192,34 +192,36 @@ public class VenueService {
         // ── OUTDOOR VENUES ────────────────────────────────────────────────────
 
         if (isOutdoorOnly || isBothOrUnspecified) {
-            // General outdoor spaces (parks, gardens, squares)
-            filters.add("[\"leisure\"=\"park\"][\"name\"]");
-            filters.add("[\"leisure\"=\"garden\"][\"name\"]");
+            // General outdoor spaces (parks, gardens, squares) - simplified filters
+            filters.add("[\"leisure\"=\"park\"]");
+            filters.add("[\"leisure\"=\"garden\"]");
             filters.add("[\"amenity\"=\"public_square\"]");
+            filters.add("[\"landuse\"=\"grass\"]");  // Fallback: open grassy areas
 
             if (eventType != null) {
                 switch (eventType.toLowerCase()) {
                     case "sports", "tournament" -> {
                         // Outdoor sports venues only
                         filters.add("[\"leisure\"=\"pitch\"]");
-                        filters.add("[\"leisure\"=\"stadium\"][\"roof\"=\"no\"]");
+                        filters.add("[\"leisure\"=\"stadium\"]");
                         filters.add("[\"leisure\"=\"basketball_court\"]");
                         filters.add("[\"leisure\"=\"tennis_court\"]");
                     }
                     case "concert", "performance" -> {
                         // Outdoor performance venues
                         filters.add("[\"leisure\"=\"bandstand\"]");
-                        filters.add("[\"amenity\"=\"theatre\"][\"roof\"=\"no\"]");
                         filters.add("[\"amenity\"=\"stage\"]");
                     }
-                    case "party", "celebration", "networking" -> {
-                        // Outdoor party spaces
-                        filters.add("[\"leisure\"=\"park\"][\"name\"]");
-                        filters.add("[\"leisure\"=\"garden\"][\"name\"]");
+                    case "party", "celebration", "networking", "wedding" -> {
+                        // Outdoor party/wedding spaces - add more generics
+                        filters.add("[\"leisure\"=\"park\"]");
+                        filters.add("[\"leisure\"=\"garden\"]");
+                        filters.add("[\"amenity\"=\"restaurant\"]");  // Some have outdoor space
                     }
                     default -> {
                         // Default outdoor: parks and gardens
-                        filters.add("[\"leisure\"=\"park\"][\"name\"]");
+                        filters.add("[\"leisure\"=\"park\"]");
+                        filters.add("[\"leisure\"=\"garden\"]");
                     }
                 }
             }
@@ -232,6 +234,11 @@ public class VenueService {
 
     private List<VenueResponse> queryOverpass(String overpassQuery) {
         try {
+            log.info("Executing Overpass query with {} filter(s)...", 
+                    overpassQuery.split("nwr\\[").length - 1);
+            log.debug("Overpass query preview (first 300 chars): {}", 
+                    overpassQuery.length() > 300 ? overpassQuery.substring(0, 300) + "..." : overpassQuery);
+            
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
             headers.set("User-Agent", "EventPlannerApp/1.0");
