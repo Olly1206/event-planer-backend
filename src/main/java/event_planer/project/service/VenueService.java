@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import event_planer.project.dto.VenueResponse;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -38,6 +39,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class VenueService {
 
     private final RestTemplate restTemplate;
@@ -52,22 +54,33 @@ public class VenueService {
     public List<VenueResponse> getVenues(String city, int radiusMeters,
                                          String locationType, String eventType) {
 
+        log.info("Fetching venues for city={}, radiusMeters={}, locationType={}, eventType={}",
+                city, radiusMeters, locationType, eventType);
+
         // Enforce radius bounds to prevent timeouts and excessive results
         int validRadius = Math.max(MIN_RADIUS_METERS, Math.min(radiusMeters, MAX_RADIUS_METERS));
         if (validRadius != radiusMeters) {
-            // Log or silently clamp — silently for now
+            log.debug("Clamped radius from {} to {}", radiusMeters, validRadius);
         }
 
         // Step 1: Geocode city name to coordinates
         double[] coords = geocodeCity(city);
-        if (coords == null) return Collections.emptyList();
+        if (coords == null) {
+            log.warn("Failed to geocode city: {}", city);
+            return Collections.emptyList();
+        }
+        log.info("Geocoded city {} to coordinates: lat={}, lon={}", city, coords[0], coords[1]);
 
         // Step 2: Build Overpass query for matching venue types
         String overpassQuery = buildOverpassQuery(coords[0], coords[1],
                 validRadius, locationType, eventType);
+        log.debug("Built Overpass query (first 500 chars): {}", 
+                overpassQuery.length() > 500 ? overpassQuery.substring(0, 500) + "..." : overpassQuery);
 
         // Step 3: Execute and parse
-        return queryOverpass(overpassQuery);
+        List<VenueResponse> results = queryOverpass(overpassQuery);
+        log.info("Found {} venues for city {}", results.size(), city);
+        return results;
     }
 
     // ── Step 1: Geocode via Nominatim ──────────────────────────────────────────
@@ -78,6 +91,8 @@ public class VenueService {
             String url = NOMINATIM_URL + "?q=" + encoded
                     + "&format=json&limit=1&addressdetails=0";
 
+            log.debug("Geocoding city with Nominatim URL: {}", url);
+
             HttpHeaders headers = new HttpHeaders();
             headers.set("User-Agent", "EventPlannerApp/1.0");
             HttpEntity<Void> entity = new HttpEntity<>(headers);
@@ -86,11 +101,17 @@ public class VenueService {
                     .exchange(url, HttpMethod.GET, entity, NominatimResult[].class)
                     .getBody();
 
-            if (results == null || results.length == 0) return null;
+            if (results == null || results.length == 0) {
+                log.warn("Nominatim returned no results for city: {}", city);
+                return null;
+            }
             double lat = Double.parseDouble(results[0].lat);
             double lon = Double.parseDouble(results[0].lon);
+            log.debug("Nominatim result: displayName={}, lat={}, lon={}", 
+                    results[0].displayName, lat, lon);
             return new double[]{lat, lon};
         } catch (Exception e) {
+            log.error("Error geocoding city {}: {}", city, e.getMessage(), e);
             return null;
         }
     }
@@ -219,27 +240,49 @@ public class VenueService {
             String body = "data=" + URLEncoder.encode(overpassQuery, StandardCharsets.UTF_8);
             HttpEntity<String> entity = new HttpEntity<>(body, headers);
 
+            log.debug("Querying Overpass API (body length: {} chars)", body.length());
+
             String response = restTemplate
                     .postForObject(OVERPASS_URL, entity, String.class);
 
-            if (response == null) return Collections.emptyList();
+            if (response == null) {
+                log.warn("Overpass API returned null response");
+                return Collections.emptyList();
+            }
+
+            log.debug("Overpass response received (length: {} chars)", response.length());
 
             JsonNode root = objectMapper.readTree(response);
             JsonNode elements = root.get("elements");
-            if (elements == null || !elements.isArray()) return Collections.emptyList();
+            if (elements == null || !elements.isArray()) {
+                log.warn("Overpass response has no elements array");
+                return Collections.emptyList();
+            }
+
+            log.debug("Overpass returned {} elements", elements.size());
 
             Map<Long, VenueResponse> seen = new LinkedHashMap<>();
+            int skipped = 0;
             for (JsonNode el : elements) {
                 if (seen.size() >= MAX_RESULTS) break;
 
                 long id = el.get("id").asLong();
-                if (seen.containsKey(id)) continue;
+                if (seen.containsKey(id)) {
+                    skipped++;
+                    continue;
+                }
 
                 JsonNode tags = el.get("tags");
-                if (tags == null) continue;
+                if (tags == null) {
+                    skipped++;
+                    continue;
+                }
 
                 String name = getTag(tags, "name");
-                if (name == null || name.isBlank()) continue;
+                if (name == null || name.isBlank()) {
+                    skipped++;
+                    continue;
+                }
 
                 // Coordinates: nodes have lat/lon directly, ways/relations use "center"
                 double lat, lon;
@@ -250,6 +293,7 @@ public class VenueService {
                     lat = el.get("center").get("lat").asDouble();
                     lon = el.get("center").get("lon").asDouble();
                 } else {
+                    skipped++;
                     continue;
                 }
 
@@ -264,8 +308,10 @@ public class VenueService {
                         category, website, phone, openingHours));
             }
 
+            log.debug("Parsed {} venues from Overpass response (skipped {})", seen.size(), skipped);
             return new ArrayList<>(seen.values());
         } catch (Exception e) {
+            log.error("Error querying Overpass API: {}", e.getMessage(), e);
             return Collections.emptyList();
         }
     }
