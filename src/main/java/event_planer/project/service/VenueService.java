@@ -107,8 +107,7 @@ public class VenueService {
             }
             double lat = Double.parseDouble(results[0].lat);
             double lon = Double.parseDouble(results[0].lon);
-            log.debug("Nominatim result: displayName={}, lat={}, lon={}", 
-                    results[0].displayName, lat, lon);
+            log.debug("Nominatim result: lat={}, lon={}", lat, lon);
             return new double[]{lat, lon};
         } catch (Exception e) {
             log.error("Error geocoding city {}: {}", city, e.getMessage(), e);
