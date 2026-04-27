@@ -183,6 +183,14 @@ public class EventController {
         return ResponseEntity.status(HttpStatus.CREATED).body(addedVendor);
     }
 
+    @DeleteMapping("/{id}/vendors/{osmId}")
+    public ResponseEntity<Void> removeVendorFromEvent(
+            @PathVariable Long id,
+            @PathVariable Long osmId) {
+        eventService.removeVendorFromEvent(id, osmId, SecurityUtils.getCurrentUserId());
+        return ResponseEntity.noContent().build();
+    }
+
     // ── Invite link ───────────────────────────────────────────────────────────
 
     /** GET /api/events/invite/{token} — public preview (no auth required) */

@@ -297,6 +297,17 @@ public class EventService {
         return mapEventVendor(saved);
     }
 
+    @Transactional
+    public void removeVendorFromEvent(Long eventId, Long osmId, Long requestingUserId) {
+        Event event = requireManageableEvent(eventId, requestingUserId);
+
+        EventVendor vendor = eventVendorRepository.findByEventIdAndOsmId(eventId, osmId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendor not found on this event"));
+
+        event.getVendors().remove(vendor);
+        eventVendorRepository.delete(vendor);
+    }
+
     // ── Reference data ─────────────────────────────────────────────────────────
 
     // ── Invite link ────────────────────────────────────────────────────────────

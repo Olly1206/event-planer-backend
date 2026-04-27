@@ -49,7 +49,7 @@ public class VenueService {
     private static final String NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
     private static final String OVERPASS_URL = "https://overpass-api.de/api/interpreter";
     private static final int MAX_RESULTS = 20;
-    private static final int MAX_RADIUS_METERS = 50_000;
+    private static final int MAX_RADIUS_METERS = 10_000;
     private static final int MIN_RADIUS_METERS = 500;
     private static final long GEOCODE_CACHE_TTL_MS = 30L * 60L * 1000L;
     private static final long SEARCH_CACHE_TTL_MS = 10L * 60L * 1000L;
