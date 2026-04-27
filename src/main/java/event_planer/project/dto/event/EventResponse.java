@@ -1,10 +1,12 @@
 package event_planer.project.dto.event;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 
+import event_planer.project.dto.VendorResponse;
 import event_planer.project.entity.Event;
 import lombok.Data;
 
@@ -44,6 +46,9 @@ public class EventResponse {
 
     // Names of selected options (e.g. ["Catering", "AV Equipment"])
     private Set<String> selectedOptions;
+
+    // Vendors attached to this event by the organiser/admin
+    private List<VendorResponse> selectedVendors;
 
     /** UUID invite token — only populated for the organiser or an admin. */
     private String inviteToken;

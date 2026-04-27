@@ -102,6 +102,12 @@ public class Event {
     @Builder.Default
     private Set<EventOptionSelection> optionSelections = new HashSet<>();
 
+    @OneToMany(mappedBy = "event", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @ToString.Exclude
+    @EqualsAndHashCode.Exclude
+    @Builder.Default
+    private Set<EventVendor> vendors = new HashSet<>();
+
     /** UUID invite token — generated on event creation, used to build share links. */
     @Column(name = "invite_token", length = 36, unique = true)
     private String inviteToken;

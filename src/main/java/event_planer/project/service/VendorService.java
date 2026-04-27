@@ -295,6 +295,10 @@ public class VendorService {
                 String address = buildAddressFromTags(tags);
                 String category = determineCategory(tags);
                 String website = getTag(tags, "website");
+                String email = getTag(tags, "email");
+                if (email == null) {
+                    email = getTag(tags, "contact:email");
+                }
                 String phone = getTag(tags, "phone");
                 if (phone == null) {
                     phone = getTag(tags, "contact:phone");
@@ -304,7 +308,7 @@ public class VendorService {
                 seen.put(id, new VendorResponse(
                         id, name, address, lat, lon, distanceMeters,
                         category, optionName, new ArrayList<>(List.of(optionName)),
-                        website, phone, hours));
+                        website, email, phone, hours));
             }
 
             return seen.values().stream()
@@ -463,6 +467,7 @@ public class VendorService {
                 vendor.getOptionName(),
                 vendor.getMatchedOptions() == null ? null : new ArrayList<>(vendor.getMatchedOptions()),
                 vendor.getWebsite(),
+                vendor.getEmail(),
                 vendor.getPhone(),
                 vendor.getOpeningHours()
         );
@@ -487,6 +492,7 @@ public class VendorService {
         private Integer distanceMeters;
         private final String category;
         private final String website;
+        private final String email;
         private final String phone;
         private final String openingHours;
         private final LinkedHashSet<String> matchedOptions = new LinkedHashSet<>();
@@ -501,6 +507,7 @@ public class VendorService {
             this.distanceMeters = seed.getDistanceMeters();
             this.category = seed.getCategory();
             this.website = seed.getWebsite();
+            this.email = seed.getEmail();
             this.phone = seed.getPhone();
             this.openingHours = seed.getOpeningHours();
             this.primaryOptionName = seed.getOptionName();
@@ -532,7 +539,7 @@ public class VendorService {
             String optionName = primaryOptionName != null ? primaryOptionName : options.stream().findFirst().orElse(null);
             return new VendorResponse(
                     osmId, name, address, lat, lon, distanceMeters,
-                    category, optionName, options, website, phone, openingHours
+                    category, optionName, options, website, email, phone, openingHours
             );
         }
     }

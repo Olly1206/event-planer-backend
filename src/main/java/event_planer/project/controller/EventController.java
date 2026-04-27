@@ -17,8 +17,10 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import event_planer.project.dto.NamedItemResponse;
+import event_planer.project.dto.VendorResponse;
 import event_planer.project.dto.event.CreateEventRequest;
 import event_planer.project.dto.event.EventResponse;
+import event_planer.project.dto.event.EventVendorRequest;
 import event_planer.project.dto.event.JoinEventRequest;
 import event_planer.project.dto.event.UpdateEventRequest;
 import event_planer.project.security.SecurityUtils;
@@ -171,6 +173,14 @@ public class EventController {
     public ResponseEntity<Void> leaveEvent(@PathVariable Long id) {
         eventService.leaveEvent(id, SecurityUtils.getCurrentUserId());
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/vendors")
+    public ResponseEntity<VendorResponse> addVendorToEvent(
+            @PathVariable Long id,
+            @Valid @RequestBody EventVendorRequest request) {
+        VendorResponse addedVendor = eventService.addVendorToEvent(id, request, SecurityUtils.getCurrentUserId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(addedVendor);
     }
 
     // ── Invite link ───────────────────────────────────────────────────────────

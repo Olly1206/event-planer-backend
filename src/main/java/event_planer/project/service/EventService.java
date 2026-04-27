@@ -2,6 +2,7 @@ package event_planer.project.service;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Comparator;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -10,8 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import event_planer.project.dto.NamedItemResponse;
+import event_planer.project.dto.VendorResponse;
 import event_planer.project.dto.event.CreateEventRequest;
 import event_planer.project.dto.event.EventResponse;
+import event_planer.project.dto.event.EventVendorRequest;
 import event_planer.project.dto.event.UpdateEventRequest;
 import event_planer.project.entity.Event;
 import event_planer.project.entity.EventOption;
@@ -20,6 +23,7 @@ import event_planer.project.entity.EventOptionSelectionId;
 import event_planer.project.entity.EventParticipant;
 import event_planer.project.entity.EventParticipantId;
 import event_planer.project.entity.EventType;
+import event_planer.project.entity.EventVendor;
 import event_planer.project.entity.User;
 import event_planer.project.exception.ResourceNotFoundException;
 import event_planer.project.repository.EventOptionRepository;
@@ -27,6 +31,7 @@ import event_planer.project.repository.EventOptionSelectionRepository;
 import event_planer.project.repository.EventParticipantRepository;
 import event_planer.project.repository.EventRepository;
 import event_planer.project.repository.EventTypeRepository;
+import event_planer.project.repository.EventVendorRepository;
 import event_planer.project.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 
@@ -40,6 +45,7 @@ public class EventService {
     private final EventOptionRepository eventOptionRepository;
     private final EventOptionSelectionRepository eventOptionSelectionRepository;
     private final EventParticipantRepository eventParticipantRepository;
+    private final EventVendorRepository eventVendorRepository;
 
     // ── Create ─────────────────────────────────────────────────────────────────
 
@@ -264,6 +270,33 @@ public class EventService {
         eventParticipantRepository.deleteById(participantId);
     }
 
+    // ── Event vendors ─────────────────────────────────────────────────────────
+
+    @Transactional
+    public VendorResponse addVendorToEvent(Long eventId, EventVendorRequest request, Long requestingUserId) {
+        Event event = requireManageableEvent(eventId, requestingUserId);
+
+        if (eventVendorRepository.existsByEventIdAndOsmId(eventId, request.getOsmId())) {
+            throw new IllegalStateException("This vendor has already been added to the event");
+        }
+
+        EventVendor vendor = EventVendor.builder()
+                .event(event)
+                .osmId(request.getOsmId())
+                .name(request.getName())
+                .address(request.getAddress())
+                .category(request.getCategory())
+                .optionName(request.getOptionName())
+                .website(request.getWebsite())
+                .email(request.getEmail())
+                .phone(request.getPhone())
+                .build();
+
+        EventVendor saved = eventVendorRepository.save(vendor);
+        event.getVendors().add(saved);
+        return mapEventVendor(saved);
+    }
+
     // ── Reference data ─────────────────────────────────────────────────────────
 
     // ── Invite link ────────────────────────────────────────────────────────────
@@ -442,6 +475,37 @@ public class EventService {
         event.getOptionSelections().addAll(selections);
     }
 
+    private Event requireManageableEvent(Long eventId, Long requestingUserId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+
+        boolean isOrganiser = event.getOrganiser().getId().equals(requestingUserId);
+        boolean isAdmin = event.getAdmins().stream().anyMatch(u -> u.getId().equals(requestingUserId));
+        if (!isOrganiser && !isAdmin) {
+            throw new SecurityException("You do not have permission to manage vendors for this event");
+        }
+
+        return event;
+    }
+
+    private VendorResponse mapEventVendor(EventVendor vendor) {
+        return new VendorResponse(
+                vendor.getOsmId(),
+                vendor.getName(),
+                vendor.getAddress(),
+                null,
+                null,
+                null,
+                vendor.getCategory(),
+                vendor.getOptionName(),
+                vendor.getOptionName() == null ? List.of() : List.of(vendor.getOptionName()),
+                vendor.getWebsite(),
+                vendor.getEmail(),
+                vendor.getPhone(),
+                null
+        );
+    }
+
     /**
      * Maps an Event entity to an EventResponse DTO.
      * Pass {@code requestingUserId} to populate invite token and isAdmin flag;
@@ -474,6 +538,13 @@ public class EventService {
                 .map(sel -> sel.getOption().getName())
                 .collect(Collectors.toSet());
         response.setSelectedOptions(optionNames);
+
+        List<VendorResponse> selectedVendors = event.getVendors()
+                .stream()
+                .map(this::mapEventVendor)
+                .sorted(Comparator.comparing(VendorResponse::getName, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+        response.setSelectedVendors(selectedVendors);
 
         response.setCurrentParticipantCount(event.getParticipants().size());
 

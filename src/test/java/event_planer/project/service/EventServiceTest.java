@@ -1,8 +1,10 @@
 package event_planer.project.service;
 
 import event_planer.project.dto.NamedItemResponse;
+import event_planer.project.dto.VendorResponse;
 import event_planer.project.dto.event.CreateEventRequest;
 import event_planer.project.dto.event.EventResponse;
+import event_planer.project.dto.event.EventVendorRequest;
 import event_planer.project.dto.event.UpdateEventRequest;
 import event_planer.project.entity.*;
 import event_planer.project.exception.ResourceNotFoundException;
@@ -31,6 +33,7 @@ class EventServiceTest {
     @Mock private EventOptionRepository eventOptionRepository;
     @Mock private EventOptionSelectionRepository eventOptionSelectionRepository;
     @Mock private EventParticipantRepository eventParticipantRepository;
+    @Mock private EventVendorRepository eventVendorRepository;
 
     @InjectMocks
     private EventService eventService;
@@ -363,6 +366,64 @@ class EventServiceTest {
 
             assertThatThrownBy(() -> eventService.leaveEvent(100L, 2L))
                     .isInstanceOf(ResourceNotFoundException.class);
+        }
+    }
+
+    @Nested
+    class EventVendors {
+
+        @Test
+        void organiserCanAddVendorToEvent() {
+            EventVendorRequest request = new EventVendorRequest();
+            request.setOsmId(501L);
+            request.setName("Flower House");
+            request.setAddress("Main Street 1");
+            request.setCategory("Florist");
+            request.setOptionName("Decoration");
+            request.setWebsite("https://flower.example");
+            request.setEmail("hello@flower.example");
+            request.setPhone("+49 123 456");
+
+            when(eventRepository.findById(100L)).thenReturn(Optional.of(publicEvent));
+            when(eventVendorRepository.existsByEventIdAndOsmId(100L, 501L)).thenReturn(false);
+            when(eventVendorRepository.save(any(EventVendor.class))).thenAnswer(invocation -> {
+                EventVendor vendor = invocation.getArgument(0);
+                vendor.setId(77L);
+                return vendor;
+            });
+
+            VendorResponse response = eventService.addVendorToEvent(100L, request, 1L);
+
+            assertThat(response.getOsmId()).isEqualTo(501L);
+            assertThat(response.getEmail()).isEqualTo("hello@flower.example");
+            verify(eventVendorRepository).save(any(EventVendor.class));
+        }
+
+        @Test
+        void rejectsDuplicateVendorForSameEvent() {
+            EventVendorRequest request = new EventVendorRequest();
+            request.setOsmId(501L);
+            request.setName("Flower House");
+
+            when(eventRepository.findById(100L)).thenReturn(Optional.of(publicEvent));
+            when(eventVendorRepository.existsByEventIdAndOsmId(100L, 501L)).thenReturn(true);
+
+            assertThatThrownBy(() -> eventService.addVendorToEvent(100L, request, 1L))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("already been added");
+        }
+
+        @Test
+        void nonManagerCannotAddVendor() {
+            EventVendorRequest request = new EventVendorRequest();
+            request.setOsmId(501L);
+            request.setName("Flower House");
+
+            when(eventRepository.findById(100L)).thenReturn(Optional.of(publicEvent));
+
+            assertThatThrownBy(() -> eventService.addVendorToEvent(100L, request, 999L))
+                    .isInstanceOf(SecurityException.class)
+                    .hasMessageContaining("manage vendors");
         }
     }
 

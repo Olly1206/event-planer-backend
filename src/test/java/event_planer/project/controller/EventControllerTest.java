@@ -20,8 +20,10 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import event_planer.project.dto.NamedItemResponse;
+import event_planer.project.dto.VendorResponse;
 import event_planer.project.dto.event.CreateEventRequest;
 import event_planer.project.dto.event.EventResponse;
+import event_planer.project.dto.event.EventVendorRequest;
 import event_planer.project.dto.event.UpdateEventRequest;
 import event_planer.project.service.EventService;
 
@@ -171,6 +173,24 @@ class EventControllerTest {
 
             verify(eventService).leaveEvent(1L, USER_ID);
             assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+        }
+
+        @Test
+        void addVendorReturns201() {
+            EventVendorRequest request = new EventVendorRequest();
+            request.setOsmId(501L);
+            request.setName("Flower House");
+
+            VendorResponse vendor = new VendorResponse();
+            vendor.setOsmId(501L);
+            vendor.setName("Flower House");
+
+            when(eventService.addVendorToEvent(eq(1L), eq(request), eq(USER_ID))).thenReturn(vendor);
+
+            ResponseEntity<VendorResponse> response = eventController.addVendorToEvent(1L, request);
+
+            assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+            assertThat(response.getBody().getName()).isEqualTo("Flower House");
         }
     }
 

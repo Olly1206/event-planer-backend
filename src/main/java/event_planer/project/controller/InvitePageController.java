@@ -49,7 +49,7 @@ public class InvitePageController {
 
             // Deep link URI for the Android app
             model.addAttribute("deepLink",
-                    "eventplanner://invite/" + token);
+                    "eventplanner://join/" + token);
 
             return "invite";
         } catch (Exception e) {

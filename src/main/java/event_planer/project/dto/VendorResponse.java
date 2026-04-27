@@ -27,6 +27,7 @@ public class VendorResponse {
     /** All option names this vendor matched during a multi-option search. */
     private List<String> matchedOptions;
     private String website;
+    private String email;
     private String phone;
     private String openingHours;
 }

@@ -24,7 +24,7 @@ class VendorControllerTest {
     @Test
     void singleOptionDelegatesToGetVendors() {
         VendorResponse vendor = new VendorResponse(1L, "Caterer A", "Berlin", 52.5, 13.4, 400,
-                "Caterer", "Catering", List.of("Catering"), null, null, null);
+                "Caterer", "Catering", List.of("Catering"), null, null, null, null);
         when(vendorService.getVendors("Berlin", 5000, "Catering", "de"))
                 .thenReturn(List.of(vendor));
 
