@@ -2,6 +2,8 @@ package event_planer.project.controller;
 
 import java.time.format.DateTimeFormatter;
 import java.util.Locale;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -28,12 +30,15 @@ public class InvitePageController {
 
     private final EventService eventService;
 
+    private static final Logger logger = LoggerFactory.getLogger(InvitePageController.class);
+
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy · HH:mm", Locale.ENGLISH);
 
     @GetMapping({"/invite/{token}", "/e/{token}"})
     public String showInvitePage(@PathVariable String token, Model model) {
         try {
+            logger.info("Invite page requested for token={}", token);
             EventResponse event = eventService.previewByToken(token);
 
             model.addAttribute("event", event);
@@ -53,6 +58,7 @@ public class InvitePageController {
 
             return "invite";
         } catch (Exception e) {
+            logger.warn("Error showing invite page for token={}", token, e);
             model.addAttribute("errorMessage", "This invite link is invalid or has expired.");
             return "invite-error";
         }
@@ -65,9 +71,12 @@ public class InvitePageController {
     @GetMapping("/s/{shortCode}")
     public String showInvitePageByShortCode(@PathVariable String shortCode, Model model) {
         try {
+            logger.info("Short-code invite requested: {}", shortCode);
             String token = eventService.resolveShortCode(shortCode);
+            logger.info("Resolved short-code {} -> token={}", shortCode, token);
             return "redirect:/invite/" + token;
         } catch (Exception e) {
+            logger.warn("Error resolving short-code {}", shortCode, e);
             model.addAttribute("errorMessage", "This invite link is invalid or has expired.");
             return "invite-error";
         }

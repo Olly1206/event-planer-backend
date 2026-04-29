@@ -9,6 +9,8 @@ import org.springframework.transaction.annotation.Transactional;
 import event_planer.project.entity.TokenShortCode;
 import event_planer.project.repository.TokenShortCodeRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Service for managing short codes that map to invite tokens.
@@ -19,6 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class ShortCodeService {
 
     private final TokenShortCodeRepository tokenShortCodeRepository;
+    private static final Logger logger = LoggerFactory.getLogger(ShortCodeService.class);
     private static final Random random = new Random();
     private static final String CHARSET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -61,6 +64,7 @@ public class ShortCodeService {
         TokenShortCode mapping = tokenShortCodeRepository.findByShortCode(shortCode)
                 .orElseThrow(() -> new event_planer.project.exception.ResourceNotFoundException(
                         "Short code not found: " + shortCode));
+        logger.info("Short code lookup: {} -> token={}", shortCode, mapping.getInviteToken());
         mapping.setLastAccessedAt(LocalDateTime.now());
         tokenShortCodeRepository.save(mapping);
         return mapping.getInviteToken();

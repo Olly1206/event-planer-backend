@@ -47,6 +47,7 @@ public class EventService {
     private final EventParticipantRepository eventParticipantRepository;
     private final EventVendorRepository eventVendorRepository;
     private final ShortCodeService shortCodeService;
+    private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(EventService.class);
 
     // ── Create ─────────────────────────────────────────────────────────────────
 
@@ -342,7 +343,10 @@ public class EventService {
      */
     @Transactional(readOnly = true)
     public String resolveShortCode(String shortCode) {
-        return shortCodeService.resolveShortCode(shortCode);
+        logger.info("EventService.resolveShortCode called for {}", shortCode);
+        String token = shortCodeService.resolveShortCode(shortCode);
+        logger.info("EventService.resolveShortCode resolved {} -> {}", shortCode, token);
+        return token;
     }
 
     /**
@@ -351,8 +355,10 @@ public class EventService {
      */
     @Transactional(readOnly = true)
     public EventResponse previewByToken(String token) {
+        logger.info("Event preview requested for token={}", token);
         Event event = eventRepository.findByInviteToken(token)
-                .orElseThrow(() -> new ResourceNotFoundException("Invalid invite link"));
+            .orElseThrow(() -> new ResourceNotFoundException("Invalid invite link"));
+        logger.info("Event preview found eventId={} for token={}", event.getId(), token);
         return mapToResponse(event, null);
     }
 

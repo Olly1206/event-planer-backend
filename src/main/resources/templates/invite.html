@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title th:text="'You're invited: ' + ${event.title}">Event Invite</title>
+    <title th:text="|You're invited: ${event.title}|">Event Invite</title>
 
     <!-- Open Graph tags so the link looks nice when shared on WhatsApp / Telegram / etc. -->
     <meta property="og:title"       th:content="${event.title}"/>
