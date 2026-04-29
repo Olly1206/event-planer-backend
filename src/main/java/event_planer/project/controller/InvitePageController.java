@@ -31,7 +31,7 @@ public class InvitePageController {
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy · HH:mm", Locale.ENGLISH);
 
-    @GetMapping({"/invite/{token}", "/e/{token}"})
+    @GetMapping({"/invite/{token}", "/e/{token}", "/s/{token}"})
     public String showInvitePage(@PathVariable String token, Model model) {
         try {
             EventResponse event = eventService.previewByToken(token);
@@ -52,6 +52,21 @@ public class InvitePageController {
                     "eventplanner://join/" + token);
 
             return "invite";
+        } catch (Exception e) {
+            model.addAttribute("errorMessage", "This invite link is invalid or has expired.");
+            return "invite-error";
+        }
+    }
+
+    /**
+     * Resolve short code to token and render invite page.
+     * This handler converts short codes to tokens before showing the invite.
+     */
+    @GetMapping("/s/{shortCode}")
+    public String showInvitePageByShortCode(@PathVariable String shortCode, Model model) {
+        try {
+            String token = eventService.resolveShortCode(shortCode);
+            return "redirect:/invite/" + token;
         } catch (Exception e) {
             model.addAttribute("errorMessage", "This invite link is invalid or has expired.");
             return "invite-error";

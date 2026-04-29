@@ -52,6 +52,9 @@ public class SecurityConfig {
                 // Short invite path for link hygiene / WAF workarounds
                 .requestMatchers(HttpMethod.GET, "/e/**").permitAll()
                 .requestMatchers(HttpMethod.HEAD, "/e/**").permitAll()
+                // Short code invite path for WAF-safe sharing
+                .requestMatchers(HttpMethod.GET, "/s/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/s/**").permitAll()
                 // Every other endpoint requires a valid JWT
                 .anyRequest().authenticated()
             )

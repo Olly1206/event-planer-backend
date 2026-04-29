@@ -46,6 +46,7 @@ public class EventService {
     private final EventOptionSelectionRepository eventOptionSelectionRepository;
     private final EventParticipantRepository eventParticipantRepository;
     private final EventVendorRepository eventVendorRepository;
+    private final ShortCodeService shortCodeService;
 
     // ── Create ─────────────────────────────────────────────────────────────────
 
@@ -325,6 +326,23 @@ public class EventService {
             throw new SecurityException("Not authorised to view the invite link for this event");
         }
         return event.getInviteToken();
+    }
+
+    /**
+     * Returns or creates a short code for the given invite token.
+     * Short codes are WAF-safe strings that map to tokens and avoid triggering CDN blocks.
+     */
+    @Transactional
+    public String getShortCodeForToken(String inviteToken) {
+        return shortCodeService.getOrCreateShortCode(inviteToken);
+    }
+
+    /**
+     * Resolves a short code to its invite token (for public invite page access).
+     */
+    @Transactional(readOnly = true)
+    public String resolveShortCode(String shortCode) {
+        return shortCodeService.resolveShortCode(shortCode);
     }
 
     /**

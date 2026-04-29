@@ -216,6 +216,16 @@ public class EventController {
         return ResponseEntity.ok(eventService.getInviteToken(id, SecurityUtils.getCurrentUserId()));
     }
 
+    /** 
+     * GET /api/events/{id}/invite-link/short — returns a WAF-safe short code (organiser/admin only)
+     * This short code maps to the token and can be shared without triggering CDN filters.
+     */
+    @GetMapping("/{id}/invite-link/short")
+    public ResponseEntity<String> getShortInviteCode(@PathVariable Long id) {
+        String token = eventService.getInviteToken(id, SecurityUtils.getCurrentUserId());
+        return ResponseEntity.ok(eventService.getShortCodeForToken(token));
+    }
+
     /** POST /api/events/{id}/admins/{username} — organiser grants admin to a user */
     @PostMapping("/{id}/admins/{username}")
     public ResponseEntity<Void> addAdmin(@PathVariable Long id, @PathVariable String username) {
