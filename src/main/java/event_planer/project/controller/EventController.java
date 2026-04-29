@@ -21,8 +21,7 @@ import event_planer.project.dto.VendorResponse;
 import event_planer.project.dto.event.CreateEventRequest;
 import event_planer.project.dto.event.EventResponse;
 import event_planer.project.dto.event.EventVendorRequest;
-import event_planer.project.dto.event.JoinEventRequest;
-import event_planer.project.dto.event.UpdateEventRequest;
+import event_planer.project.dto.event.JoinEventRequest;import event_planer.project.dto.event.ShortCodeResponse;import event_planer.project.dto.event.UpdateEventRequest;
 import event_planer.project.security.SecurityUtils;
 import event_planer.project.service.EventService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -221,9 +220,10 @@ public class EventController {
      * This short code maps to the token and can be shared without triggering CDN filters.
      */
     @GetMapping("/{id}/invite-link/short")
-    public ResponseEntity<String> getShortInviteCode(@PathVariable Long id) {
+    public ResponseEntity<ShortCodeResponse> getShortInviteCode(@PathVariable Long id) {
         String token = eventService.getInviteToken(id, SecurityUtils.getCurrentUserId());
-        return ResponseEntity.ok(eventService.getShortCodeForToken(token));
+        String shortCode = eventService.getShortCodeForToken(token);
+        return ResponseEntity.ok(ShortCodeResponse.builder().shortCode(shortCode).build());
     }
 
     /** POST /api/events/{id}/admins/{username} — organiser grants admin to a user */
@@ -232,8 +232,6 @@ public class EventController {
         eventService.addAdmin(id, username, SecurityUtils.getCurrentUserId());
         return ResponseEntity.ok().build();
     }
-
-    /** DELETE /api/events/{id}/admins/{adminUserId} — organiser revokes admin */
     @DeleteMapping("/{id}/admins/{adminUserId}")
     public ResponseEntity<Void> removeAdmin(@PathVariable Long id, @PathVariable Long adminUserId) {
         eventService.removeAdmin(id, adminUserId, SecurityUtils.getCurrentUserId());
