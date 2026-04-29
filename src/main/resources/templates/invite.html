@@ -7,7 +7,7 @@
 
     <!-- Open Graph tags so the link looks nice when shared on WhatsApp / Telegram / etc. -->
     <meta property="og:title"       th:content="${event.title}"/>
-    <meta property="og:description" th:content="${event.description != null ? event.description : |You've been invited to an event!|}"/>
+    <meta property="og:description" th:content="${event.description != null ? event.description : 'You''ve been invited to an event!'}"/>
     <meta property="og:type"        content="website"/>
 
     <style>
