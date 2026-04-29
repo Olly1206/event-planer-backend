@@ -38,6 +38,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/events/*/invite-link").authenticated()
                 // Public invite preview does NOT need a token
                 .requestMatchers(HttpMethod.GET, "/api/events/invite/**").permitAll()
+                // Some clients probe links with HEAD before opening them
+                .requestMatchers(HttpMethod.HEAD, "/api/events/invite/**").permitAll()
                 // Anyone can browse/search events without being logged in
                 .requestMatchers(HttpMethod.GET, "/api/events/**").permitAll()
                 // Venue suggestions are public (informational — no auth needed)
@@ -46,6 +48,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/vendors/**").permitAll()
                 // Invite landing page (Thymeleaf HTML) — public
                 .requestMatchers(HttpMethod.GET, "/invite/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/invite/**").permitAll()
                 // Every other endpoint requires a valid JWT
                 .anyRequest().authenticated()
             )
