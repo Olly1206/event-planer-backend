@@ -31,7 +31,7 @@ public class InvitePageController {
     private static final DateTimeFormatter DATE_FMT =
             DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy · HH:mm", Locale.ENGLISH);
 
-    @GetMapping({"/invite/{token}", "/e/{token}", "/s/{token}"})
+    @GetMapping({"/invite/{token}", "/e/{token}"})
     public String showInvitePage(@PathVariable String token, Model model) {
         try {
             EventResponse event = eventService.previewByToken(token);
