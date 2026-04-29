@@ -49,6 +49,9 @@ public class SecurityConfig {
                 // Invite landing page (Thymeleaf HTML) — public
                 .requestMatchers(HttpMethod.GET, "/invite/**").permitAll()
                 .requestMatchers(HttpMethod.HEAD, "/invite/**").permitAll()
+                // Short invite path for link hygiene / WAF workarounds
+                .requestMatchers(HttpMethod.GET, "/e/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/e/**").permitAll()
                 // Every other endpoint requires a valid JWT
                 .anyRequest().authenticated()
             )
