@@ -5,9 +5,10 @@ Spring Boot REST API for the Event Planner prototype. It provides authentication
 ## Prototype Scope
 
 - User registration, login, JWT authentication, and guest mode
+- Self-service account deletion for Play Store compliance
 - Event creation, editing, deletion, search, created events, and joined events
 - Participant join/leave flow
-- Shareable invite tokens, short invite codes, and public invite pages
+- Shareable invite tokens, short invite codes, public invite pages, and public legal pages
 - Venue suggestions through OpenStreetMap/Nominatim/Overpass-style lookup
 - Vendor suggestions based on selected event options
 - Weather lookup through Open-Meteo, so no weather API key is required
@@ -41,7 +42,7 @@ src/
 |       |-- application.properties
 |       |-- application-local.properties
 |       |-- application-build.properties
-|       `-- templates/    Public invite pages
+|       `-- templates/    Public invite/legal pages
 `-- test/java/event_planer/project/
 ```
 
@@ -143,7 +144,13 @@ Reference data and suggestions:
 Users:
 
 - `GET /api/users/me`
+- `DELETE /api/users/me`
 - `GET /api/users/{id}`
+
+Public legal pages:
+
+- `GET /privacy`
+- `GET /account-deletion`
 
 ## Android Client Integration
 
@@ -153,7 +160,7 @@ The Android app stores the JWT returned by register/login/guest calls and sends 
 Authorization: Bearer <token>
 ```
 
-The current Android prototype points at the deployed Render backend by default. For a local demo, set the Android `RetrofitClient.BASE_URL` to `http://10.0.2.2:8080/` for an emulator or `http://<computer-lan-ip>:8080/` for a physical phone.
+The current Android prototype points at the deployed Render backend by default through Gradle `BuildConfig`. For a local demo, update the Android `BASE_URL` build config to `http://10.0.2.2:8080/` for an emulator or `http://<computer-lan-ip>:8080/` for a physical phone.
 
 ## Packaging Notes
 

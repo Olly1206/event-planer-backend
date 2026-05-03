@@ -35,6 +35,10 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     @Query("SELECT ep.event FROM EventParticipant ep WHERE ep.user.id = :userId")
     List<Event> findJoinedByUserId(Long userId);
 
+    /** Events where the given user has been granted admin rights. */
+    @Query("SELECT e FROM Event e JOIN e.admins admin WHERE admin.id = :userId")
+    List<Event> findAdministeredByUserId(@Param("userId") Long userId);
+
     @Query("SELECT e FROM Event e WHERE LOWER(e.title) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Event> searchByTitle(String keyword);
 }

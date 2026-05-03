@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>EvenGo Privacy Policy</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #050806;
+            --card: #121a15;
+            --text: #f2fff2;
+            --muted: #a8b7aa;
+            --accent: #6ce37d;
+            --border: #2f7d32;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background: radial-gradient(circle at top left, #1f5c2e, var(--bg) 42%);
+            color: var(--text);
+            line-height: 1.55;
+        }
+        main {
+            width: min(860px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 48px 0;
+        }
+        section {
+            background: rgba(18, 26, 21, 0.94);
+            border: 1px solid rgba(108, 227, 125, 0.24);
+            border-radius: 18px;
+            padding: 28px;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28);
+        }
+        h1, h2 { margin-top: 0; }
+        h1 { font-size: 32px; }
+        h2 { color: var(--accent); font-size: 20px; margin-top: 28px; }
+        p, li { color: var(--muted); }
+        a { color: var(--accent); }
+    </style>
+</head>
+<body>
+<main>
+    <section>
+        <h1>EvenGo Privacy Policy</h1>
+        <p>Last updated: 2026-05-03</p>
+
+        <p>
+            EvenGo is an event-planning prototype by Oliver Loeckler. This policy explains
+            what data the app uses while helping users create events, invite participants,
+            and request venue, vendor, and weather suggestions.
+        </p>
+
+        <h2>Data We Collect</h2>
+        <ul>
+            <li>Account data such as username, email address, account type, and hashed password.</li>
+            <li>Guest-session data such as an app-generated guest identifier and expiry date.</li>
+            <li>Event data such as title, description, date/time, city, venue, selected options, vendors, invite links, and participant names where enabled by the organiser.</li>
+            <li>Technical data needed to authenticate API requests and keep the service working.</li>
+        </ul>
+
+        <h2>Data We Do Not Collect</h2>
+        <p>
+            The Android app does not request device location, contacts, camera, microphone,
+            SMS, call log, payment, or health permissions.
+        </p>
+
+        <h2>External Services</h2>
+        <p>
+            EvenGo uses public map and weather services through the backend. City names,
+            event option categories, and search radius values may be sent to Nominatim,
+            OpenStreetMap Overpass, and Open-Meteo to return venue, vendor, and weather
+            suggestions. Account passwords and JWT tokens are not sent to these external
+            lookup services.
+        </p>
+
+        <h2>How Data Is Used</h2>
+        <p>
+            Data is used to authenticate users, store events, show event dashboards, manage
+            invite links, join participants to events, and provide planning suggestions.
+            EvenGo does not sell user data.
+        </p>
+
+        <h2>Security</h2>
+        <p>
+            Release builds connect to the backend over HTTPS. Passwords are stored as
+            hashes, and authenticated app requests use JWT bearer tokens.
+        </p>
+
+        <h2>Deletion</h2>
+        <p>
+            Users can delete their account from inside the app. Open the account menu and
+            choose Delete account. Users who no longer have the app installed can use the
+            instructions on the <a href="/account-deletion">account deletion page</a>.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+            For privacy questions, use the developer contact email shown on the EvenGo
+            Google Play listing.
+        </p>
+    </section>
+</main>
+</body>
+</html>

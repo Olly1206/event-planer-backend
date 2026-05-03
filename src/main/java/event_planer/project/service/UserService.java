@@ -111,6 +111,27 @@ public class UserService {
         return mapToResponse(user);
     }
 
+    /**
+     * Deletes the current user's account and account-owned data.
+     *
+     * Organised events are removed through the User -> Event cascade. Joined-event
+     * participations are removed through the User -> EventParticipant cascade.
+     * Admin grants on events owned by other users must be removed explicitly
+     * because they live in a many-to-many join table.
+     */
+    @Transactional
+    public void deleteAccount(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
+
+        List<Event> administeredEvents = eventRepository.findAdministeredByUserId(userId);
+        for (Event event : administeredEvents) {
+            event.getAdmins().removeIf(admin -> admin.getId().equals(userId));
+        }
+
+        userRepository.delete(user);
+    }
+
     // ── Guest Mode ──────────────────────────────────────────────────────────────
 
     /**

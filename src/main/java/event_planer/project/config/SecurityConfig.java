@@ -46,6 +46,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/venues/**").permitAll()
                 // Vendor suggestions are public (informational — no auth needed)
                 .requestMatchers(HttpMethod.GET, "/api/vendors/**").permitAll()
+                // Public legal/account-deletion pages required for app distribution
+                .requestMatchers(HttpMethod.GET, "/privacy", "/account-deletion").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/privacy", "/account-deletion").permitAll()
                 // Invite landing page (Thymeleaf HTML) — public
                 .requestMatchers(HttpMethod.GET, "/invite/**").permitAll()
                 .requestMatchers(HttpMethod.HEAD, "/invite/**").permitAll()

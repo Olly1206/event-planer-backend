@@ -39,4 +39,14 @@ public class UserController {
     public ResponseEntity<UserResponse> getCurrentUser() {
         return ResponseEntity.ok(userService.getUserById(SecurityUtils.getCurrentUserId()));
     }
+
+    /**
+     * DELETE /api/users/me
+     * Deletes the authenticated user's account and account-owned data.
+     */
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteCurrentUser() {
+        userService.deleteAccount(SecurityUtils.getCurrentUserId());
+        return ResponseEntity.noContent().build();
+    }
 }

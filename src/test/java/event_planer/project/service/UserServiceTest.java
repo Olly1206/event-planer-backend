@@ -268,6 +268,41 @@ class UserServiceTest {
         }
     }
 
+    // ── DeleteAccount ──────────────────────────────────────────────────────────
+
+    @Nested
+    class DeleteAccount {
+
+        @Test
+        void deletesUserAndRemovesAdminReferences() {
+            Event administeredEvent = Event.builder()
+                    .id(88L)
+                    .title("Other organiser event")
+                    .admins(new java.util.HashSet<>())
+                    .build();
+            administeredEvent.getAdmins().add(existingUser);
+
+            when(userRepository.findById(1L)).thenReturn(Optional.of(existingUser));
+            when(eventRepository.findAdministeredByUserId(1L)).thenReturn(List.of(administeredEvent));
+
+            userService.deleteAccount(1L);
+
+            assertThat(administeredEvent.getAdmins()).doesNotContain(existingUser);
+            verify(userRepository).delete(existingUser);
+        }
+
+        @Test
+        void throwsWhenDeletingMissingUser() {
+            when(userRepository.findById(404L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> userService.deleteAccount(404L))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("User not found");
+
+            verify(userRepository, never()).delete(any(User.class));
+        }
+    }
+
     // ── Guest Mode ─────────────────────────────────────────────────────────────
 
     @Nested
