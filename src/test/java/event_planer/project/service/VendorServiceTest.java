@@ -86,9 +86,22 @@ class VendorServiceTest {
         }
 
         @Test
+        void securityStaffMapsToSecurityTags() {
+            List<String> filters = invokeMapping("Security Staff");
+            assertThat(filters).anyMatch(f -> f.contains("\"office\"=\"security\""));
+        }
+
+        @Test
         void avEquipmentMapsToCorrectTags() {
             List<String> filters = invokeMapping("AV Equipment");
             assertThat(filters).anyMatch(f -> f.contains("electronics"));
+        }
+
+        @Test
+        void guestSpeakersMapsToSpeakerRelatedTags() {
+            List<String> filters = invokeMapping("Guest Speakers");
+            assertThat(filters).anyMatch(f -> f.contains("consulting"));
+            assertThat(filters).anyMatch(f -> f.contains("speaker"));
         }
 
         @Test

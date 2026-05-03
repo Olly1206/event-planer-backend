@@ -187,7 +187,7 @@ public class VendorService {
                 filters.add("[\"shop\"=\"interior_decoration\"]");
                 filters.add("[\"shop\"=\"garden_centre\"]");
             }
-            case "security" -> {
+            case "security", "security staff" -> {
                 filters.add("[\"office\"=\"security\"]");
                 filters.add("[\"shop\"=\"security\"]");
             }
@@ -195,6 +195,11 @@ public class VendorService {
                 filters.add("[\"shop\"=\"electronics\"]");
                 filters.add("[\"office\"=\"it\"]");
                 filters.add("[\"shop\"=\"hifi\"]");
+            }
+            case "guest speakers", "speaker", "speakers", "moderator", "trainer" -> {
+                filters.add("[\"office\"=\"consulting\"]");
+                filters.add("[\"office\"=\"educational_institution\"]");
+                filters.add("[\"name\"~\"speaker|moderator|trainer|coach\",i]");
             }
             case "printing", "print" -> {
                 filters.add("[\"shop\"=\"copyshop\"]");
