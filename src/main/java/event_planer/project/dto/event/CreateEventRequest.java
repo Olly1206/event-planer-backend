@@ -26,6 +26,30 @@ public class CreateEventRequest {
     @Size(max = 200, message = "Location name must not exceed 200 characters")
     private String locationName;
 
+    // Optional selected venue details (from /api/venues)
+    private Long venueOsmId;
+
+    @Size(max = 200, message = "Venue name must not exceed 200 characters")
+    private String venueName;
+
+    @Size(max = 1000, message = "Venue address must not exceed 1000 characters")
+    private String venueAddress;
+
+    private Double venueLat;
+    private Double venueLon;
+
+    @Size(max = 120, message = "Venue category must not exceed 120 characters")
+    private String venueCategory;
+
+    @Size(max = 255, message = "Venue website must not exceed 255 characters")
+    private String venueWebsite;
+
+    @Size(max = 80, message = "Venue phone must not exceed 80 characters")
+    private String venuePhone;
+
+    @Size(max = 255, message = "Venue opening hours must not exceed 255 characters")
+    private String venueOpeningHours;
+
     private Event.LocationType locationType;
 
     private Event.Visibility visibility;

@@ -77,6 +77,15 @@ public class EventService {
                 .eventEndDate(request.getEventEndDate())
                 .locationName(request.getLocationName())
                 .locationType(request.getLocationType())
+            .venueOsmId(request.getVenueOsmId())
+            .venueName(request.getVenueName())
+            .venueAddress(request.getVenueAddress())
+            .venueLat(request.getVenueLat())
+            .venueLon(request.getVenueLon())
+            .venueCategory(request.getVenueCategory())
+            .venueWebsite(request.getVenueWebsite())
+            .venuePhone(request.getVenuePhone())
+            .venueOpeningHours(request.getVenueOpeningHours())
                 .visibility(request.getVisibility() != null
                         ? request.getVisibility() : Event.Visibility.PUBLIC)
                 .collectParticipantNames(request.getCollectParticipantNames() != null
@@ -171,6 +180,15 @@ public class EventService {
         if (request.getEventDate() != null)               event.setEventDate(request.getEventDate());
         if (request.getEventEndDate() != null)            event.setEventEndDate(request.getEventEndDate());
         if (request.getLocationName() != null)            event.setLocationName(request.getLocationName());
+        if (request.getVenueOsmId() != null)             event.setVenueOsmId(request.getVenueOsmId());
+        if (request.getVenueName() != null)              event.setVenueName(request.getVenueName());
+        if (request.getVenueAddress() != null)           event.setVenueAddress(request.getVenueAddress());
+        if (request.getVenueLat() != null)               event.setVenueLat(request.getVenueLat());
+        if (request.getVenueLon() != null)               event.setVenueLon(request.getVenueLon());
+        if (request.getVenueCategory() != null)          event.setVenueCategory(request.getVenueCategory());
+        if (request.getVenueWebsite() != null)           event.setVenueWebsite(request.getVenueWebsite());
+        if (request.getVenuePhone() != null)             event.setVenuePhone(request.getVenuePhone());
+        if (request.getVenueOpeningHours() != null)      event.setVenueOpeningHours(request.getVenueOpeningHours());
         if (request.getLocationType() != null)            event.setLocationType(request.getLocationType());
         if (request.getVisibility() != null)              event.setVisibility(request.getVisibility());
         if (request.getStatus() != null)                  event.setStatus(request.getStatus());
@@ -555,6 +573,15 @@ public class EventService {
         response.setEventEndDate(event.getEventEndDate());
         response.setLocationName(event.getLocationName());
         response.setLocationType(event.getLocationType());
+        response.setVenueOsmId(event.getVenueOsmId());
+        response.setVenueName(event.getVenueName());
+        response.setVenueAddress(event.getVenueAddress());
+        response.setVenueLat(event.getVenueLat());
+        response.setVenueLon(event.getVenueLon());
+        response.setVenueCategory(event.getVenueCategory());
+        response.setVenueWebsite(event.getVenueWebsite());
+        response.setVenuePhone(event.getVenuePhone());
+        response.setVenueOpeningHours(event.getVenueOpeningHours());
         response.setStatus(event.getStatus());
         response.setVisibility(event.getVisibility());
         response.setMaxParticipants(event.getMaxParticipants());

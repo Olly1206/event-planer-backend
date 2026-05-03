@@ -29,6 +29,30 @@ public class UpdateEventRequest {
     @Size(max = 200)
     private String locationName;
 
+    // Optional selected venue details (from /api/venues)
+    private Long venueOsmId;
+
+    @Size(max = 200)
+    private String venueName;
+
+    @Size(max = 1000)
+    private String venueAddress;
+
+    private Double venueLat;
+    private Double venueLon;
+
+    @Size(max = 120)
+    private String venueCategory;
+
+    @Size(max = 255)
+    private String venueWebsite;
+
+    @Size(max = 80)
+    private String venuePhone;
+
+    @Size(max = 255)
+    private String venueOpeningHours;
+
     private Event.LocationType locationType;
     private Event.Visibility visibility;
     private Event.Status status;

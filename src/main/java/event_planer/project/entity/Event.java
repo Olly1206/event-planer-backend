@@ -57,6 +57,33 @@ public class Event {
     @Column(name = "location_name", length = 200)
     private String locationName;
 
+    @Column(name = "venue_osm_id")
+    private Long venueOsmId;
+
+    @Column(name = "venue_name", length = 200)
+    private String venueName;
+
+    @Column(name = "venue_address", columnDefinition = "TEXT")
+    private String venueAddress;
+
+    @Column(name = "venue_lat")
+    private Double venueLat;
+
+    @Column(name = "venue_lon")
+    private Double venueLon;
+
+    @Column(name = "venue_category", length = 120)
+    private String venueCategory;
+
+    @Column(name = "venue_website", length = 255)
+    private String venueWebsite;
+
+    @Column(name = "venue_phone", length = 80)
+    private String venuePhone;
+
+    @Column(name = "venue_opening_hours", length = 255)
+    private String venueOpeningHours;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "location_type")
     private LocationType locationType;

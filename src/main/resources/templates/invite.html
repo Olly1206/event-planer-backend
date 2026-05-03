@@ -187,11 +187,16 @@
         </div>
 
         <!-- Location -->
-        <div class="detail-row" th:if="${event.locationName != null}">
+           <div class="detail-row" th:if="${event.venueName != null or event.locationName != null}">
             <div class="detail-icon">📍</div>
             <div>
                 <div class="detail-label">Where</div>
-                <div class="detail-value" th:text="${event.locationName}">Venue Name</div>
+                 <div class="detail-value"
+                     th:text="${event.venueName != null ? event.venueName : event.locationName}">Venue Name</div>
+                 <div class="detail-value" th:if="${event.venueAddress != null}"
+                     th:text="${event.venueAddress}"
+                     style="font-size:.78rem;color:#888;margin-top:.1rem;">
+                 </div>
                 <div class="detail-value" th:if="${event.locationType != null}"
                      th:text="${event.locationType}"
                      style="font-size:.78rem;color:#888;margin-top:.1rem;">

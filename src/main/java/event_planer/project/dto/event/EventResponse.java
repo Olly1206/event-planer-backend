@@ -29,6 +29,15 @@ public class EventResponse {
     private LocalDateTime eventEndDate;
     private String locationName;
     private Event.LocationType locationType;
+    private Long venueOsmId;
+    private String venueName;
+    private String venueAddress;
+    private Double venueLat;
+    private Double venueLon;
+    private String venueCategory;
+    private String venueWebsite;
+    private String venuePhone;
+    private String venueOpeningHours;
     private Event.Status status;
     private Event.Visibility visibility;
     private Integer maxParticipants;
