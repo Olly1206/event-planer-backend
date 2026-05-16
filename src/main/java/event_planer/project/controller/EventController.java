@@ -1,10 +1,15 @@
 package event_planer.project.controller;
 
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,9 +24,15 @@ import org.springframework.web.bind.annotation.RestController;
 import event_planer.project.dto.NamedItemResponse;
 import event_planer.project.dto.VendorResponse;
 import event_planer.project.dto.event.CreateEventRequest;
+import event_planer.project.dto.event.EventDashboardResponse;
+import event_planer.project.dto.event.EventParticipantResponse;
 import event_planer.project.dto.event.EventResponse;
 import event_planer.project.dto.event.EventVendorRequest;
-import event_planer.project.dto.event.JoinEventRequest;import event_planer.project.dto.event.ShortCodeResponse;import event_planer.project.dto.event.UpdateEventRequest;
+import event_planer.project.dto.event.JoinEventRequest;
+import event_planer.project.dto.event.OrganizerSubscriptionResponse;
+import event_planer.project.dto.event.ShortCodeResponse;
+import event_planer.project.dto.event.SubscriptionPreferenceRequest;
+import event_planer.project.dto.event.UpdateEventRequest;
 import event_planer.project.security.SecurityUtils;
 import event_planer.project.service.EventService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -73,6 +84,69 @@ public class EventController {
                 .body(events);
     }
 
+    /** GET /api/events/subscribed — future public events from followed organisers. */
+    @GetMapping("/subscribed")
+    public ResponseEntity<List<EventResponse>> getSubscribedEvents() {
+        return ResponseEntity.ok(eventService.getSubscribedEvents(SecurityUtils.getCurrentUserId()));
+    }
+
+    /** GET /api/events/subscriptions — organisers/clubs the current user follows. */
+    @GetMapping("/subscriptions")
+    public ResponseEntity<List<OrganizerSubscriptionResponse>> getSubscriptions() {
+        return ResponseEntity.ok(eventService.getSubscriptions(SecurityUtils.getCurrentUserId()));
+    }
+
+    /** POST /api/events/subscriptions/organisers/{organiserId} — follow an organiser/club. */
+    @PostMapping("/subscriptions/organisers/{organiserId}")
+    public ResponseEntity<OrganizerSubscriptionResponse> subscribeToOrganiser(
+            @PathVariable Long organiserId,
+            @Valid @RequestBody(required = false) SubscriptionPreferenceRequest request) {
+        OrganizerSubscriptionResponse response = eventService.subscribeToOrganiser(
+                organiserId,
+                SecurityUtils.getCurrentUserId(),
+                request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    /** PATCH /api/events/subscriptions/organisers/{organiserId} — update reminder preferences. */
+    @PatchMapping("/subscriptions/organisers/{organiserId}")
+    public ResponseEntity<OrganizerSubscriptionResponse> updateSubscription(
+            @PathVariable Long organiserId,
+            @Valid @RequestBody SubscriptionPreferenceRequest request) {
+        return ResponseEntity.ok(eventService.updateSubscriptionPreferences(
+                organiserId,
+                SecurityUtils.getCurrentUserId(),
+                request));
+    }
+
+    /** DELETE /api/events/subscriptions/organisers/{organiserId} — unfollow an organiser/club. */
+    @DeleteMapping("/subscriptions/organisers/{organiserId}")
+    public ResponseEntity<Void> unsubscribeFromOrganiser(@PathVariable Long organiserId) {
+        eventService.unsubscribeFromOrganiser(organiserId, SecurityUtils.getCurrentUserId());
+        return ResponseEntity.noContent().build();
+    }
+
+    /** GET /api/events/organiser/{organiserId}/followers/count — organiser adoption metric. */
+    @GetMapping("/organiser/{organiserId}/followers/count")
+    public ResponseEntity<Map<String, Long>> getOrganiserFollowerCount(@PathVariable Long organiserId) {
+        return ResponseEntity.ok(Map.of("count", eventService.getFollowerCount(organiserId)));
+    }
+
+    /** GET /api/events/organiser/{organiserId}/dashboard — organiser dashboard summary. */
+    @GetMapping("/organiser/{organiserId}/dashboard")
+    public ResponseEntity<EventDashboardResponse> getOrganiserDashboard(@PathVariable Long organiserId) {
+        return ResponseEntity.ok(eventService.getOrganiserDashboard(organiserId, SecurityUtils.getCurrentUserId()));
+    }
+
+    /** GET /api/events/organiser/{organiserId}/calendar.ics — public iCalendar export. */
+    @GetMapping(value = "/organiser/{organiserId}/calendar.ics", produces = "text/calendar")
+    public ResponseEntity<String> exportOrganiserCalendar(@PathVariable Long organiserId) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"organiser-" + organiserId + ".ics\"")
+                .contentType(MediaType.parseMediaType("text/calendar"))
+                .body(eventService.exportOrganiserCalendar(organiserId));
+    }
+
     /**
      * GET /api/events/{id}
      * {id} is a path variable — Spring extracts it from the URL and passes it
@@ -112,6 +186,30 @@ public class EventController {
     @GetMapping("/search")
     public ResponseEntity<List<EventResponse>> searchEvents(@RequestParam String keyword) {
         return ResponseEntity.ok(eventService.searchEvents(keyword));
+    }
+
+    /**
+     * GET /api/events/filter
+     * Optional public filters for browse/search screens.
+     */
+    @GetMapping("/filter")
+    public ResponseEntity<List<EventResponse>> filterEvents(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String city,
+            @RequestParam(required = false) Long eventTypeId,
+            @RequestParam(required = false) Long organiserId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+        return ResponseEntity.ok(eventService.filterEvents(keyword, city, eventTypeId, from, to, organiserId));
+    }
+
+    /** GET /api/events/{id}/calendar.ics — iCalendar export for one visible event. */
+    @GetMapping(value = "/{id}/calendar.ics", produces = "text/calendar")
+    public ResponseEntity<String> exportEventCalendar(@PathVariable Long id) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"event-" + id + ".ics\"")
+                .contentType(MediaType.parseMediaType("text/calendar"))
+                .body(eventService.exportEventCalendar(id, SecurityUtils.getCurrentUserIdOrNull()));
     }
 
     // ── Update ─────────────────────────────────────────────────────────────────
@@ -172,6 +270,21 @@ public class EventController {
     public ResponseEntity<Void> leaveEvent(@PathVariable Long id) {
         eventService.leaveEvent(id, SecurityUtils.getCurrentUserId());
         return ResponseEntity.noContent().build();
+    }
+
+    /** GET /api/events/{id}/participants — organiser/admin participant list. */
+    @GetMapping("/{id}/participants")
+    public ResponseEntity<List<EventParticipantResponse>> getParticipants(@PathVariable Long id) {
+        return ResponseEntity.ok(eventService.getParticipants(id, SecurityUtils.getCurrentUserId()));
+    }
+
+    /** GET /api/events/{id}/participants.csv — organiser/admin CSV export. */
+    @GetMapping(value = "/{id}/participants.csv", produces = "text/csv")
+    public ResponseEntity<String> exportParticipantsCsv(@PathVariable Long id) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"event-" + id + "-participants.csv\"")
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .body(eventService.exportParticipantsCsv(id, SecurityUtils.getCurrentUserId()));
     }
 
     @PostMapping("/{id}/vendors")
@@ -242,6 +355,16 @@ public class EventController {
     @GetMapping("/joined")
     public ResponseEntity<List<EventResponse>> getJoinedEvents() {
         return ResponseEntity.ok(eventService.getJoinedEvents(SecurityUtils.getCurrentUserId()));
+    }
+
+    /** GET /api/events/joined/calendar.ics — iCalendar export for current user's joined events. */
+    @GetMapping(value = "/joined/calendar.ics", produces = "text/calendar")
+    public ResponseEntity<String> exportJoinedCalendar() {
+        Long userId = SecurityUtils.getCurrentUserId();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"joined-events.ics\"")
+                .contentType(MediaType.parseMediaType("text/calendar"))
+                .body(eventService.exportJoinedCalendar(userId));
     }
 
     /** GET /api/events/my — returns all events the current user has created */

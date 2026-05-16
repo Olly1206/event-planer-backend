@@ -1,0 +1,10 @@
+- ~~Add organiser/club subscription persistence so users can follow the chess club once.~~
+- ~~Add subscription preference fields for reminders, notification opt-in, and email fallback readiness.~~
+- ~~Add endpoints to follow, update, unfollow, list subscriptions, and fetch the subscribed event feed.~~
+- ~~Return future public events from followed organisers in a personal subscribed feed.~~
+- ~~Add focused tests for subscription creation, duplicate protection, preference updates, and feed visibility.~~
+- ~~Harden guest-to-signed-in migration so guest-created events stay editable after account creation.~~
+- Implement real push notification delivery for subscribed event creation and reminders.
+- Implement email fallback delivery for users without push enabled.
+- Add a calendar export endpoint, for example iCal or one-click calendar links.
+- Add a dedicated club profile entity if one organiser account should represent multiple clubs later.

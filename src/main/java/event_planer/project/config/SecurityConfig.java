@@ -34,8 +34,14 @@ public class SecurityConfig {
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 // These event endpoints always require a valid JWT (they call getCurrentUserId())
                 .requestMatchers(HttpMethod.GET, "/api/events/joined").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/events/joined/calendar.ics").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/events/my").authenticated()
                 .requestMatchers(HttpMethod.GET, "/api/events/*/invite-link").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/events/*/participants").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/events/*/participants.csv").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/events/organiser/*/dashboard").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/events/subscribed").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/events/subscriptions").authenticated()
                 // Public invite preview does NOT need a token
                 .requestMatchers(HttpMethod.GET, "/api/events/invite/**").permitAll()
                 // Some clients probe links with HEAD before opening them

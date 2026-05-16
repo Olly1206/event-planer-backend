@@ -1,5 +1,7 @@
 package event_planer.project.service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Comparator;
@@ -13,8 +15,13 @@ import org.springframework.transaction.annotation.Transactional;
 import event_planer.project.dto.NamedItemResponse;
 import event_planer.project.dto.VendorResponse;
 import event_planer.project.dto.event.CreateEventRequest;
+import event_planer.project.dto.event.EventDashboardItemResponse;
+import event_planer.project.dto.event.EventDashboardResponse;
+import event_planer.project.dto.event.EventParticipantResponse;
 import event_planer.project.dto.event.EventResponse;
 import event_planer.project.dto.event.EventVendorRequest;
+import event_planer.project.dto.event.OrganizerSubscriptionResponse;
+import event_planer.project.dto.event.SubscriptionPreferenceRequest;
 import event_planer.project.dto.event.UpdateEventRequest;
 import event_planer.project.entity.Event;
 import event_planer.project.entity.EventOption;
@@ -25,6 +32,7 @@ import event_planer.project.entity.EventParticipantId;
 import event_planer.project.entity.EventType;
 import event_planer.project.entity.EventVendor;
 import event_planer.project.entity.User;
+import event_planer.project.entity.UserOrganizerSubscription;
 import event_planer.project.exception.ResourceNotFoundException;
 import event_planer.project.repository.EventOptionRepository;
 import event_planer.project.repository.EventOptionSelectionRepository;
@@ -33,6 +41,7 @@ import event_planer.project.repository.EventRepository;
 import event_planer.project.repository.EventTypeRepository;
 import event_planer.project.repository.EventVendorRepository;
 import event_planer.project.repository.UserRepository;
+import event_planer.project.repository.UserOrganizerSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -46,8 +55,10 @@ public class EventService {
     private final EventOptionSelectionRepository eventOptionSelectionRepository;
     private final EventParticipantRepository eventParticipantRepository;
     private final EventVendorRepository eventVendorRepository;
+    private final UserOrganizerSubscriptionRepository subscriptionRepository;
     private final ShortCodeService shortCodeService;
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(EventService.class);
+    private static final DateTimeFormatter ICS_DATE_TIME = DateTimeFormatter.ofPattern("yyyyMMdd'T'HHmmss");
 
     // ── Create ─────────────────────────────────────────────────────────────────
 
@@ -58,6 +69,8 @@ public class EventService {
      */
     @Transactional
     public EventResponse createEvent(CreateEventRequest request, Long organiserId) {
+        validateEventDateRange(request.getEventDate(), request.getEventEndDate());
+
         User organiser = userRepository.findById(organiserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organiser not found: " + organiserId));
 
@@ -158,6 +171,38 @@ public class EventService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<EventResponse> filterEvents(
+            String keyword,
+            String city,
+            Long eventTypeId,
+            LocalDateTime from,
+            LocalDateTime to,
+            Long organiserId) {
+        if (from != null && to != null && to.isBefore(from)) {
+            throw new IllegalArgumentException("to must be on or after from");
+        }
+
+        return eventRepository.findAll()
+                .stream()
+                .filter(e -> e.getVisibility() != Event.Visibility.PRIVATE)
+                .filter(e -> keyword == null || keyword.isBlank()
+                        || containsIgnoreCase(e.getTitle(), keyword)
+                        || containsIgnoreCase(e.getDescription(), keyword))
+                .filter(e -> city == null || city.isBlank()
+                        || containsIgnoreCase(e.getLocationName(), city)
+                        || containsIgnoreCase(e.getVenueAddress(), city)
+                        || containsIgnoreCase(e.getVenueName(), city))
+                .filter(e -> eventTypeId == null
+                        || (e.getEventType() != null && eventTypeId.equals(e.getEventType().getId())))
+                .filter(e -> organiserId == null || e.getOrganiser().getId().equals(organiserId))
+                .filter(e -> from == null || e.getEventDate() == null || !e.getEventDate().isBefore(from))
+                .filter(e -> to == null || e.getEventDate() == null || !e.getEventDate().isAfter(to))
+                .sorted(Comparator.comparing(Event::getEventDate, Comparator.nullsLast(LocalDateTime::compareTo)))
+                .map(this::mapToResponse)
+                .toList();
+    }
+
     // ── Update ─────────────────────────────────────────────────────────────────
 
     /**
@@ -173,6 +218,10 @@ public class EventService {
         if (!event.getOrganiser().getId().equals(requestingUserId)) {
             throw new SecurityException("You do not have permission to edit this event");
         }
+
+        validateEventDateRange(
+                request.getEventDate() != null ? request.getEventDate() : event.getEventDate(),
+                request.getEventEndDate() != null ? request.getEventEndDate() : event.getEventEndDate());
 
         // Only update fields that were actually sent (null = leave unchanged)
         if (request.getTitle() != null)                   event.setTitle(request.getTitle());
@@ -326,6 +375,37 @@ public class EventService {
 
         event.getVendors().remove(vendor);
         eventVendorRepository.delete(vendor);
+    }
+
+    @Transactional(readOnly = true)
+    public List<EventParticipantResponse> getParticipants(Long eventId, Long requestingUserId) {
+        requireManageableEvent(eventId, requestingUserId);
+
+        return eventParticipantRepository.findByEventId(eventId)
+                .stream()
+                .sorted(Comparator.comparing(EventParticipant::getJoinedAt,
+                        Comparator.nullsLast(LocalDateTime::compareTo)))
+                .map(this::mapParticipant)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public String exportParticipantsCsv(Long eventId, Long requestingUserId) {
+        List<EventParticipantResponse> participants = getParticipants(eventId, requestingUserId);
+        StringBuilder csv = new StringBuilder("userId,username,email,participantName,joinedAt\n");
+        for (EventParticipantResponse participant : participants) {
+            csv.append(csvValue(participant.getUserId()))
+                    .append(',')
+                    .append(csvValue(participant.getUsername()))
+                    .append(',')
+                    .append(csvValue(participant.getEmail()))
+                    .append(',')
+                    .append(csvValue(participant.getParticipantName()))
+                    .append(',')
+                    .append(csvValue(participant.getJoinedAt()))
+                    .append('\n');
+        }
+        return csv.toString();
     }
 
     // ── Reference data ─────────────────────────────────────────────────────────
@@ -485,6 +565,150 @@ public class EventService {
                 .collect(Collectors.toList());
     }
 
+    // ── Organiser subscriptions ───────────────────────────────────────────────
+
+    @Transactional
+    public OrganizerSubscriptionResponse subscribeToOrganiser(
+            Long organiserId,
+            Long subscriberId,
+            SubscriptionPreferenceRequest request) {
+        if (organiserId.equals(subscriberId)) {
+            throw new IllegalArgumentException("You cannot subscribe to yourself");
+        }
+        if (subscriptionRepository.existsBySubscriberIdAndOrganiserId(subscriberId, organiserId)) {
+            throw new IllegalStateException("You are already subscribed to this organiser");
+        }
+
+        User subscriber = userRepository.findById(subscriberId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subscriber not found: " + subscriberId));
+        User organiser = userRepository.findById(organiserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Organiser not found: " + organiserId));
+
+        UserOrganizerSubscription subscription = UserOrganizerSubscription.builder()
+                .subscriber(subscriber)
+                .organiser(organiser)
+                .build();
+        applySubscriptionPreferences(subscription, request);
+
+        return mapSubscription(subscriptionRepository.save(subscription));
+    }
+
+    @Transactional
+    public OrganizerSubscriptionResponse updateSubscriptionPreferences(
+            Long organiserId,
+            Long subscriberId,
+            SubscriptionPreferenceRequest request) {
+        UserOrganizerSubscription subscription = subscriptionRepository
+                .findBySubscriberIdAndOrganiserId(subscriberId, organiserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subscription not found"));
+
+        applySubscriptionPreferences(subscription, request);
+        return mapSubscription(subscriptionRepository.save(subscription));
+    }
+
+    @Transactional
+    public void unsubscribeFromOrganiser(Long organiserId, Long subscriberId) {
+        if (!subscriptionRepository.existsBySubscriberIdAndOrganiserId(subscriberId, organiserId)) {
+            throw new ResourceNotFoundException("Subscription not found");
+        }
+        subscriptionRepository.deleteBySubscriberIdAndOrganiserId(subscriberId, organiserId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<OrganizerSubscriptionResponse> getSubscriptions(Long subscriberId) {
+        return subscriptionRepository.findBySubscriberId(subscriberId)
+                .stream()
+                .map(this::mapSubscription)
+                .sorted(Comparator.comparing(OrganizerSubscriptionResponse::getOrganiserUsername,
+                        String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<EventResponse> getSubscribedEvents(Long subscriberId) {
+        return eventRepository.findFuturePublicEventsForSubscriptions(
+                        subscriberId,
+                        LocalDateTime.now(),
+                        Event.Visibility.PUBLIC)
+                .stream()
+                .map(event -> mapToResponse(event, subscriberId))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public long getFollowerCount(Long organiserId) {
+        if (!userRepository.existsById(organiserId)) {
+            throw new ResourceNotFoundException("Organiser not found: " + organiserId);
+        }
+        return subscriptionRepository.countByOrganiserId(organiserId);
+    }
+
+    @Transactional(readOnly = true)
+    public EventDashboardResponse getOrganiserDashboard(Long organiserId, Long requestingUserId) {
+        if (!organiserId.equals(requestingUserId)) {
+            throw new SecurityException("You do not have permission to view this dashboard");
+        }
+
+        List<Event> events = eventRepository.findByOrganiserId(organiserId);
+        LocalDateTime now = LocalDateTime.now();
+        List<EventDashboardItemResponse> eventItems = events.stream()
+                .sorted(Comparator.comparing(Event::getEventDate, Comparator.nullsLast(LocalDateTime::compareTo)))
+                .map(event -> EventDashboardItemResponse.builder()
+                        .id(event.getId())
+                        .title(event.getTitle())
+                        .eventDate(event.getEventDate())
+                        .status(event.getStatus())
+                        .visibility(event.getVisibility())
+                        .maxParticipants(event.getMaxParticipants())
+                        .currentParticipantCount(event.getParticipants().size())
+                        .build())
+                .toList();
+
+        return EventDashboardResponse.builder()
+                .followerCount(subscriptionRepository.countByOrganiserId(organiserId))
+                .totalCreatedEvents(events.size())
+                .upcomingEvents((int) events.stream()
+                        .filter(event -> event.getEventDate() != null && !event.getEventDate().isBefore(now))
+                        .count())
+                .draftEvents((int) events.stream()
+                        .filter(event -> event.getStatus() == Event.Status.DRAFT)
+                        .count())
+                .totalParticipantCount(events.stream()
+                        .mapToInt(event -> event.getParticipants().size())
+                        .sum())
+                .events(eventItems)
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public String exportEventCalendar(Long eventId, Long requestingUserId) {
+        Event event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+        if (event.getVisibility() == Event.Visibility.PRIVATE) {
+            requireVisiblePrivateEvent(event, requestingUserId);
+        }
+        return buildCalendar(List.of(event), "event-" + eventId);
+    }
+
+    @Transactional(readOnly = true)
+    public String exportOrganiserCalendar(Long organiserId) {
+        List<Event> events = eventRepository.findByOrganiserId(organiserId)
+                .stream()
+                .filter(e -> e.getVisibility() != Event.Visibility.PRIVATE)
+                .sorted(Comparator.comparing(Event::getEventDate, Comparator.nullsLast(LocalDateTime::compareTo)))
+                .toList();
+        return buildCalendar(events, "organiser-" + organiserId);
+    }
+
+    @Transactional(readOnly = true)
+    public String exportJoinedCalendar(Long userId) {
+        List<Event> events = eventRepository.findJoinedByUserId(userId)
+                .stream()
+                .sorted(Comparator.comparing(Event::getEventDate, Comparator.nullsLast(LocalDateTime::compareTo)))
+                .toList();
+        return buildCalendar(events, "joined-" + userId);
+    }
+
     /** Returns all event types (id + name) for client-side ID lookup. */
     @Transactional(readOnly = true)
     public List<NamedItemResponse> getAllEventTypes() {
@@ -528,6 +752,29 @@ public class EventService {
         event.getOptionSelections().addAll(selections);
     }
 
+    private void validateEventDateRange(LocalDateTime eventDate, LocalDateTime eventEndDate) {
+        if (eventDate != null && eventEndDate != null && !eventEndDate.isAfter(eventDate)) {
+            throw new IllegalArgumentException("eventEndDate must be after eventDate");
+        }
+    }
+
+    private boolean containsIgnoreCase(String value, String needle) {
+        return value != null && needle != null
+                && value.toLowerCase(java.util.Locale.ROOT).contains(needle.toLowerCase(java.util.Locale.ROOT));
+    }
+
+    private void requireVisiblePrivateEvent(Event event, Long requestingUserId) {
+        boolean isOrganiser = requestingUserId != null
+                && event.getOrganiser().getId().equals(requestingUserId);
+        boolean isAdmin = requestingUserId != null
+                && event.getAdmins().stream().anyMatch(u -> u.getId().equals(requestingUserId));
+        boolean isParticipant = requestingUserId != null
+                && eventParticipantRepository.existsByEventIdAndUserId(event.getId(), requestingUserId);
+        if (!isOrganiser && !isAdmin && !isParticipant) {
+            throw new ResourceNotFoundException("Event not found: " + event.getId());
+        }
+    }
+
     private Event requireManageableEvent(Long eventId, Long requestingUserId) {
         Event event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
@@ -539,6 +786,35 @@ public class EventService {
         }
 
         return event;
+    }
+
+    private void applySubscriptionPreferences(
+            UserOrganizerSubscription subscription,
+            SubscriptionPreferenceRequest request) {
+        if (request == null) {
+            return;
+        }
+        if (request.getNotificationsEnabled() != null) {
+            subscription.setNotificationsEnabled(request.getNotificationsEnabled());
+        }
+        if (request.getEmailFallbackEnabled() != null) {
+            subscription.setEmailFallbackEnabled(request.getEmailFallbackEnabled());
+        }
+        if (request.getRemindBeforeMinutes() != null) {
+            subscription.setRemindBeforeMinutes(request.getRemindBeforeMinutes());
+        }
+    }
+
+    private OrganizerSubscriptionResponse mapSubscription(UserOrganizerSubscription subscription) {
+        return OrganizerSubscriptionResponse.builder()
+                .id(subscription.getId())
+                .organiserId(subscription.getOrganiser().getId())
+                .organiserUsername(subscription.getOrganiser().getUsername())
+                .notificationsEnabled(subscription.getNotificationsEnabled())
+                .emailFallbackEnabled(subscription.getEmailFallbackEnabled())
+                .remindBeforeMinutes(subscription.getRemindBeforeMinutes())
+                .createdAt(subscription.getCreatedAt())
+                .build();
     }
 
     private VendorResponse mapEventVendor(EventVendor vendor) {
@@ -557,6 +833,82 @@ public class EventService {
                 vendor.getPhone(),
                 null
         );
+    }
+
+    private EventParticipantResponse mapParticipant(EventParticipant participant) {
+        User user = participant.getUser();
+        return EventParticipantResponse.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .participantName(participant.getParticipantName())
+                .joinedAt(participant.getJoinedAt())
+                .build();
+    }
+
+    private String csvValue(Object value) {
+        if (value == null) {
+            return "";
+        }
+        String raw = String.valueOf(value);
+        if (raw.contains(",") || raw.contains("\"") || raw.contains("\n") || raw.contains("\r")) {
+            return "\"" + raw.replace("\"", "\"\"") + "\"";
+        }
+        return raw;
+    }
+
+    private String buildCalendar(List<Event> events, String calendarName) {
+        StringBuilder ics = new StringBuilder();
+        ics.append("BEGIN:VCALENDAR\r\n")
+                .append("VERSION:2.0\r\n")
+                .append("PRODID:-//Event Planner//Event Planner Backend//EN\r\n")
+                .append("CALSCALE:GREGORIAN\r\n")
+                .append("X-WR-CALNAME:").append(escapeIcs(calendarName)).append("\r\n");
+        for (Event event : events) {
+            appendIcsEvent(ics, event);
+        }
+        ics.append("END:VCALENDAR\r\n");
+        return ics.toString();
+    }
+
+    private void appendIcsEvent(StringBuilder ics, Event event) {
+        ics.append("BEGIN:VEVENT\r\n")
+                .append("UID:event-").append(event.getId()).append("@event-planner.local\r\n")
+                .append("DTSTAMP:").append(formatIcsDateTime(LocalDateTime.now())).append("\r\n");
+        if (event.getEventDate() != null) {
+            ics.append("DTSTART:").append(formatIcsDateTime(event.getEventDate())).append("\r\n");
+        }
+        if (event.getEventEndDate() != null) {
+            ics.append("DTEND:").append(formatIcsDateTime(event.getEventEndDate())).append("\r\n");
+        }
+        ics.append("SUMMARY:").append(escapeIcs(event.getTitle())).append("\r\n");
+        if (event.getDescription() != null && !event.getDescription().isBlank()) {
+            ics.append("DESCRIPTION:").append(escapeIcs(event.getDescription())).append("\r\n");
+        }
+        String location = event.getVenueName() != null && !event.getVenueName().isBlank()
+                ? event.getVenueName()
+                : event.getLocationName();
+        if (location != null && !location.isBlank()) {
+            ics.append("LOCATION:").append(escapeIcs(location)).append("\r\n");
+        }
+        ics.append("END:VEVENT\r\n");
+    }
+
+    private String formatIcsDateTime(LocalDateTime value) {
+        return value.format(ICS_DATE_TIME);
+    }
+
+    private String escapeIcs(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replace("\\", "\\\\")
+                .replace(";", "\\;")
+                .replace(",", "\\,")
+                .replace("\r\n", "\\n")
+                .replace("\n", "\\n")
+                .replace("\r", "\\n");
     }
 
     /**

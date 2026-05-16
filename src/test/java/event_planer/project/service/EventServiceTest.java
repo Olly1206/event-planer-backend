@@ -34,6 +34,7 @@ class EventServiceTest {
     @Mock private EventOptionSelectionRepository eventOptionSelectionRepository;
     @Mock private EventParticipantRepository eventParticipantRepository;
     @Mock private EventVendorRepository eventVendorRepository;
+    @Mock private UserOrganizerSubscriptionRepository subscriptionRepository;
 
     @InjectMocks
     private EventService eventService;
@@ -246,6 +247,82 @@ class EventServiceTest {
             List<EventResponse> results = eventService.searchEvents("event");
 
             assertThat(results).hasSize(1);
+        }
+    }
+
+    @Nested
+    class OrganiserSubscriptions {
+
+        @Test
+        void subscribesToOrganiserWithPreferences() {
+            User subscriber = User.builder().id(2L).username("bob").build();
+            var request = new event_planer.project.dto.event.SubscriptionPreferenceRequest();
+            request.setRemindBeforeMinutes(60);
+            request.setNotificationsEnabled(true);
+            request.setEmailFallbackEnabled(false);
+
+            when(subscriptionRepository.existsBySubscriberIdAndOrganiserId(2L, 1L)).thenReturn(false);
+            when(userRepository.findById(2L)).thenReturn(Optional.of(subscriber));
+            when(userRepository.findById(1L)).thenReturn(Optional.of(organiser));
+            when(subscriptionRepository.save(any(UserOrganizerSubscription.class))).thenAnswer(inv -> {
+                UserOrganizerSubscription subscription = inv.getArgument(0);
+                subscription.setId(77L);
+                return subscription;
+            });
+
+            var response = eventService.subscribeToOrganiser(1L, 2L, request);
+
+            assertThat(response.getOrganiserId()).isEqualTo(1L);
+            assertThat(response.getRemindBeforeMinutes()).isEqualTo(60);
+            assertThat(response.getEmailFallbackEnabled()).isFalse();
+        }
+
+        @Test
+        void rejectsDuplicateSubscription() {
+            when(subscriptionRepository.existsBySubscriberIdAndOrganiserId(2L, 1L)).thenReturn(true);
+
+            assertThatThrownBy(() -> eventService.subscribeToOrganiser(1L, 2L, null))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("already subscribed");
+        }
+
+        @Test
+        void updatesSubscriptionPreferences() {
+            User subscriber = User.builder().id(2L).username("bob").build();
+            UserOrganizerSubscription subscription = UserOrganizerSubscription.builder()
+                    .id(77L)
+                    .subscriber(subscriber)
+                    .organiser(organiser)
+                    .notificationsEnabled(true)
+                    .emailFallbackEnabled(true)
+                    .remindBeforeMinutes(1440)
+                    .build();
+            var request = new event_planer.project.dto.event.SubscriptionPreferenceRequest();
+            request.setNotificationsEnabled(false);
+            request.setRemindBeforeMinutes(30);
+
+            when(subscriptionRepository.findBySubscriberIdAndOrganiserId(2L, 1L))
+                    .thenReturn(Optional.of(subscription));
+            when(subscriptionRepository.save(subscription)).thenReturn(subscription);
+
+            var response = eventService.updateSubscriptionPreferences(1L, 2L, request);
+
+            assertThat(response.getNotificationsEnabled()).isFalse();
+            assertThat(response.getEmailFallbackEnabled()).isTrue();
+            assertThat(response.getRemindBeforeMinutes()).isEqualTo(30);
+        }
+
+        @Test
+        void returnsSubscribedFuturePublicEvents() {
+            when(eventRepository.findFuturePublicEventsForSubscriptions(
+                    eq(2L),
+                    any(LocalDateTime.class),
+                    eq(Event.Visibility.PUBLIC))).thenReturn(List.of(publicEvent));
+
+            List<EventResponse> response = eventService.getSubscribedEvents(2L);
+
+            assertThat(response).hasSize(1);
+            assertThat(response.get(0).getTitle()).isEqualTo("Public Meetup");
         }
     }
 

@@ -1,5 +1,6 @@
 package event_planer.project.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,6 +39,21 @@ public interface EventRepository extends JpaRepository<Event, Long> {
     /** Events where the given user has been granted admin rights. */
     @Query("SELECT e FROM Event e JOIN e.admins admin WHERE admin.id = :userId")
     List<Event> findAdministeredByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT e FROM Event e
+            WHERE e.organiser.id IN (
+                SELECT s.organiser.id FROM UserOrganizerSubscription s
+                WHERE s.subscriber.id = :subscriberId
+            )
+            AND e.visibility = :visibility
+            AND e.eventDate >= :fromDate
+            ORDER BY e.eventDate ASC
+            """)
+    List<Event> findFuturePublicEventsForSubscriptions(
+            @Param("subscriberId") Long subscriberId,
+            @Param("fromDate") LocalDateTime fromDate,
+            @Param("visibility") Event.Visibility visibility);
 
     @Query("SELECT e FROM Event e WHERE LOWER(e.title) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Event> searchByTitle(String keyword);

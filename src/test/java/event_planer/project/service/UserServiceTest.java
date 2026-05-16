@@ -12,6 +12,7 @@ import event_planer.project.exception.ResourceNotFoundException;
 import event_planer.project.repository.EventParticipantRepository;
 import event_planer.project.repository.EventRepository;
 import event_planer.project.repository.UserRepository;
+import event_planer.project.repository.UserOrganizerSubscriptionRepository;
 import event_planer.project.security.JwtService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -37,6 +38,7 @@ class UserServiceTest {
     @Mock private JwtService jwtService;
     @Mock private EventRepository eventRepository;
     @Mock private EventParticipantRepository eventParticipantRepository;
+    @Mock private UserOrganizerSubscriptionRepository subscriptionRepository;
 
     @InjectMocks
     private UserService userService;
@@ -389,6 +391,10 @@ class UserServiceTest {
                             && saved.getEvent().equals(event)
                             && saved.getParticipantName().equals("Alice Guest")
             ));
+            assertThat(event.getOrganiser()).isEqualTo(registeredUser);
+            verify(eventRepository).save(event);
+            verify(subscriptionRepository).deleteBySubscriberId(10L);
+            verify(subscriptionRepository).deleteByOrganiserId(10L);
             verify(userRepository).delete(guest);
         }
     }

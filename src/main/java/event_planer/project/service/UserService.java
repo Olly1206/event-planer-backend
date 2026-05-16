@@ -22,6 +22,7 @@ import event_planer.project.exception.ResourceNotFoundException;
 import event_planer.project.repository.EventParticipantRepository;
 import event_planer.project.repository.EventRepository;
 import event_planer.project.repository.UserRepository;
+import event_planer.project.repository.UserOrganizerSubscriptionRepository;
 import event_planer.project.security.JwtService;
 import lombok.RequiredArgsConstructor;
 
@@ -36,6 +37,7 @@ public class UserService {
     private final JwtService jwtService;
     private final EventRepository eventRepository;
     private final EventParticipantRepository eventParticipantRepository;
+    private final UserOrganizerSubscriptionRepository subscriptionRepository;
 
     /**
      * Registers a new user account.
@@ -128,6 +130,8 @@ public class UserService {
         for (Event event : administeredEvents) {
             event.getAdmins().removeIf(admin -> admin.getId().equals(userId));
         }
+        subscriptionRepository.deleteBySubscriberId(userId);
+        subscriptionRepository.deleteByOrganiserId(userId);
 
         userRepository.delete(user);
     }
@@ -221,7 +225,14 @@ public class UserService {
             eventParticipantRepository.save(migratedParticipation);
         }
 
-        // Delete the guest user account (cascade will remove any remaining orphaned records)
+        subscriptionRepository.deleteBySubscriberId(guestUser.getId());
+        subscriptionRepository.deleteByOrganiserId(guestUser.getId());
+
+        // Prevent User -> Event cascade from removing events that were just re-owned.
+        guestUser.getOrganisedEvents().clear();
+        guestUser.getParticipations().clear();
+
+        // Delete the guest user account after all portable data has moved.
         userRepository.delete(guestUser);
     }
 
@@ -241,6 +252,10 @@ public class UserService {
         List<User> expiredGuests = userRepository.findByRoleAndExpiresAtBefore(User.Role.GUEST, now);
         
         if (!expiredGuests.isEmpty()) {
+            for (User guest : expiredGuests) {
+                subscriptionRepository.deleteBySubscriberId(guest.getId());
+                subscriptionRepository.deleteByOrganiserId(guest.getId());
+            }
             userRepository.deleteAll(expiredGuests);
             // Note: cascade rules in Event and EventParticipant will handle cleanup
         }
